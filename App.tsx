@@ -10,6 +10,7 @@ import { LandingPage } from './components/LandingPage';
 import { TemplateView } from './components/TemplateView';
 import { Toast } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { OnboardingModal } from './components/OnboardingModal';
 import { Objective, Task, ScheduleSlot, TaskStatus, Subtask, Category } from './types';
 import { OBJECTIVE_COLORS } from './constants';
 
@@ -44,6 +45,7 @@ const App: React.FC = () => {
   const [schedule, setSchedule] = useState<ScheduleSlot[]>([]);
   const [isSharedView, setIsSharedView] = useState(false);
   const [templateToImport, setTemplateToImport] = useState<null | { objective: Objective; tasks: Task[] }>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   
   // Toast State
   const [toast, setToast] = useState<{ message: string; visible: boolean; type: 'success' | 'error' }>({
@@ -126,6 +128,10 @@ const App: React.FC = () => {
         // Deep link to app
         setView('app');
         loadLocalData();
+      } else if (!localStorage.getItem('frenchPlannerData_v2')) {
+        // First time user, no data, not a shared link
+        setShowOnboarding(true);
+        setView('app'); // Set to app view but modal will cover it
       } else {
         loadLocalData();
       }
@@ -232,6 +238,11 @@ const App: React.FC = () => {
   const hasData = () => objectives.length > 0 || tasks.length > 0;
 
   const handleNext = () => {
+    // Dismiss onboarding if the user proceeds from the first step
+    if (step === 1 && showOnboarding) {
+      setShowOnboarding(false);
+      trackEvent('onboarding_skipped');
+    }
     setStep(prev => Math.min(prev + 1, 5));
   };
 
@@ -266,6 +277,13 @@ const App: React.FC = () => {
     }
   };
   
+  const handleOnboardingStart = () => {
+    setShowOnboarding(false);
+    trackEvent('onboarding_completed');
+    // Set a flag to not show it again
+    localStorage.setItem('onboarding_complete', 'true');
+  };
+  
   const renderApp = () => {
     if (view === 'landing') {
       return (
@@ -273,6 +291,15 @@ const App: React.FC = () => {
           onStart={handleStartApp} 
           hasData={hasData()} 
         />
+      );
+    }
+    
+    if (showOnboarding) {
+      return (
+        <>
+          <Layout step={step} setStep={setStep} trackEvent={trackEvent}><div/></Layout>
+          <OnboardingModal onStart={handleOnboardingStart} />
+        </>
       );
     }
 

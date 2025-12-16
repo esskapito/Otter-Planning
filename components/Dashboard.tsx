@@ -4,6 +4,8 @@ import { CATEGORY_COLORS, CATEGORY_EMOJIS, DAYS_OF_WEEK } from '../constants';
 import { PieChart, Pie, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { BottomSheet } from './BottomSheet';
 import { ShareSheet } from './ShareSheet';
+import { ProgressRing } from './ProgressRing';
+import { CelebrationAnimation } from './CelebrationAnimation';
 
 interface Props {
   objectives: Objective[];
@@ -20,12 +22,21 @@ const getTodayIndex = () => {
   return day === 0 ? 6 : day - 1; // Adjust to our Monday = 0 index
 };
 
+const motivationalQuotes = [
+    "Le succès est la somme de petits efforts répétés jour après jour.",
+    "La seule façon de faire du bon travail est d'aimer ce que vous faites.",
+    "N'attendez pas. Le temps ne sera jamais 'juste'.",
+    "La discipline est le pont entre les objectifs et la réalisation.",
+    "Croyez en vous, même si personne d'autre ne le fait.",
+];
+
 export const Dashboard: React.FC<Props> = ({ objectives, tasks, setTasks, onResetProgress, onClearAll, trackEvent, showToast }) => {
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [activeDay, setActiveDay] = useState(getTodayIndex());
   const [mobileTab, setMobileTab] = useState<'agenda' | 'stats'>('agenda');
   const [isDaySheetOpen, setIsDaySheetOpen] = useState(false);
   const [objectiveToShare, setObjectiveToShare] = useState<null | { objective: Objective, tasks: Task[] }>(null);
+  const [quote] = useState(motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)]);
 
   const handleShareObjective = (objectiveId: string) => {
     trackEvent('share_objective_clicked');
@@ -170,6 +181,11 @@ export const Dashboard: React.FC<Props> = ({ objectives, tasks, setTasks, onRese
 
   return (
     <div className="space-y-8 pb-12">
+      <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50 p-4 rounded-xl text-center">
+        <p className="text-sm font-medium text-indigo-800 dark:text-indigo-200">
+          <span className="font-serif italic">"{quote}"</span>
+        </p>
+      </div>
       <div className="bg-slate-900 dark:bg-slate-800 text-white rounded-xl p-6 sm:p-8 shadow-lg transition-colors">
           <h2 className="text-2xl font-bold mb-6">Tableau de bord Global</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -184,9 +200,10 @@ export const Dashboard: React.FC<Props> = ({ objectives, tasks, setTasks, onRese
           const objTotalSlots = objTasks.reduce((acc, t) => acc + (t.scheduledSlots?.length || 0), 0);
           const objCompletedSlots = objTasks.reduce((acc, t) => acc + (t.completedSlots?.length || 0), 0);
           const objProgress = objTotalSlots === 0 ? 0 : Math.round((objCompletedSlots / objTotalSlots) * 100);
+          const isComplete = objProgress === 100;
           return (
             <div key={obj.id} className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 relative overflow-hidden transition-colors group">
-               <div className="absolute top-0 left-0 w-1.5 h-full" style={{backgroundColor: obj.color}}></div>
+               {isComplete && <CelebrationAnimation />}
                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                  <button 
                     onClick={() => handleShareObjective(obj.id)} 
@@ -196,12 +213,13 @@ export const Dashboard: React.FC<Props> = ({ objectives, tasks, setTasks, onRese
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367-2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" /></svg>
                  </button>
                </div>
-               <h3 className="font-bold text-slate-900 dark:text-white mb-1 pl-2 pr-8">{obj.title}</h3>
-               <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 pl-2">{objTotalSlots} sessions prévues</p>
-               <div className="pl-2">
-                 <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1"><span>Progression</span><span>{objProgress}%</span></div>
-                 <div className="w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-500" style={{width: `${objProgress}%`, backgroundColor: obj.color}}></div></div>
-               </div>
+               <div className="flex items-center gap-4">
+                 <ProgressRing progress={objProgress} color={obj.color} size={50} strokeWidth={5} />
+                 <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-slate-900 dark:text-white leading-tight truncate pr-8">{obj.title}</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{objTotalSlots} sessions prévues</p>
+                 </div>
+              </div>
             </div>
           )
         })}
