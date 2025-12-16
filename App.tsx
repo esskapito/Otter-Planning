@@ -20,6 +20,22 @@ declare global {
   }
 }
 
+const decodeFromHash = (encodedData: string): string | null => {
+  try {
+    // New, correct method for UTF-8 characters
+    return decodeURIComponent(escape(atob(encodedData)));
+  } catch (e) {
+    console.warn("UTF-8 decoding failed, falling back to simple atob.", e);
+    try {
+      // Fallback for old links that might not be UTF-8 encoded
+      return atob(encodedData);
+    } catch (finalError) {
+      console.error("Could not decode data from hash.", finalError);
+      return null;
+    }
+  }
+};
+
 const App: React.FC = () => {
   const [view, setView] = useState<'landing' | 'app'>('landing');
   const [step, setStep] = useState(1);
@@ -72,35 +88,39 @@ const App: React.FC = () => {
       const hash = window.location.hash;
       if (hash.startsWith('#template=')) {
         const encodedData = hash.substring(10);
-        const decodedJson = atob(encodedData);
-        const templateData = JSON.parse(decodedJson);
-        if (templateData.objective && templateData.tasks) {
-            // Rehydrate tasks with full properties
-            const hydratedTasks = templateData.tasks.map((t: any) => ({
-              id: '', objectiveId: '',
-              title: t.title || 'Tâche sans titre',
-              category: t.category || Category.AUTRE,
-              durationMinutes: t.durationMinutes || 30,
-              status: TaskStatus.PENDING,
-              repeatCount: t.repeatCount || 1,
-              isRecurring: t.isRecurring ?? true,
-              scheduledSlots: [], completedSlots: [],
-              subtasks: (t.subtasks || []).map((st: any) => ({ id: '', title: st.title, isCompleted: false }))
-            }));
-            setTemplateToImport({ objective: templateData.objective, tasks: hydratedTasks });
-            setView('app'); // Go to app view, which will be intercepted to show TemplateView
-            trackEvent('template_link_viewed');
+        const decodedJson = decodeFromHash(encodedData);
+        if(decodedJson) {
+          const templateData = JSON.parse(decodedJson);
+          if (templateData.objective && templateData.tasks) {
+              // Rehydrate tasks with full properties
+              const hydratedTasks = templateData.tasks.map((t: any) => ({
+                id: '', objectiveId: '',
+                title: t.title || 'Tâche sans titre',
+                category: t.category || Category.AUTRE,
+                durationMinutes: t.durationMinutes || 30,
+                status: TaskStatus.PENDING,
+                repeatCount: t.repeatCount || 1,
+                isRecurring: t.isRecurring ?? true,
+                scheduledSlots: [], completedSlots: [],
+                subtasks: (t.subtasks || []).map((st: any) => ({ id: '', title: st.title, isCompleted: false }))
+              }));
+              setTemplateToImport({ objective: templateData.objective, tasks: hydratedTasks });
+              setView('app'); // Go to app view, which will be intercepted to show TemplateView
+              trackEvent('template_link_viewed');
+          }
         }
       } else if (hash.startsWith('#shared=')) {
         const encodedData = hash.substring(8);
-        const decodedJson = atob(encodedData);
-        const sharedData = JSON.parse(decodedJson);
-        if (sharedData.objectives && sharedData.tasks) {
-          setObjectives(Array.isArray(sharedData.objectives) ? sharedData.objectives : []);
-          setTasks(Array.isArray(sharedData.tasks) ? sharedData.tasks : []);
-          setIsSharedView(true);
-          setView('app'); // Go straight to app for shared links
-          trackEvent('shared_plan_viewed');
+        const decodedJson = decodeFromHash(encodedData);
+        if(decodedJson) {
+          const sharedData = JSON.parse(decodedJson);
+          if (sharedData.objectives && sharedData.tasks) {
+            setObjectives(Array.isArray(sharedData.objectives) ? sharedData.objectives : []);
+            setTasks(Array.isArray(sharedData.tasks) ? sharedData.tasks : []);
+            setIsSharedView(true);
+            setView('app'); // Go straight to app for shared links
+            trackEvent('shared_plan_viewed');
+          }
         }
       } else if (hash === '#app') {
         // Deep link to app
