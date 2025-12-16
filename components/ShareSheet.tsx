@@ -64,7 +64,7 @@ export const ShareSheet: React.FC<Props> = ({ data, onClose, showToast }) => {
       />
       
       <div 
-        className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-2xl md:rounded-xl shadow-2xl transition-transform duration-300 ease-out flex flex-col animate-in slide-in-from-bottom-5 md:slide-in-from-bottom-0"
+        className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-2xl md:rounded-xl shadow-2xl transition-transform duration-300 ease-out flex flex-col animate-slide-up"
       >
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center flex-shrink-0">
            <h3 className="font-bold text-lg text-slate-900 dark:text-white">Partager l'objectif</h3>

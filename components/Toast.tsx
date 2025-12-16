@@ -18,7 +18,7 @@ export const Toast: React.FC<Props> = ({ message, isVisible, onClose, type = 'su
   if (!isVisible) return null;
 
   return (
-    <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-[70] animate-in slide-in-from-top-5 fade-in duration-300 w-max max-w-[90vw]">
+    <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-[70] animate-slide-down w-max max-w-[90vw]">
        <div className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 font-medium text-sm border border-slate-700 dark:border-slate-200">
          <span className={`flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0 ${type === 'success' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
             {type === 'success' ? (
