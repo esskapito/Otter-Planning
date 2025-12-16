@@ -9,6 +9,7 @@ import { SharedView } from './components/SharedView';
 import { LandingPage } from './components/LandingPage';
 import { TemplateView } from './components/TemplateView';
 import { Toast } from './components/Toast';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Objective, Task, ScheduleSlot, TaskStatus, Subtask, Category } from './types';
 import { OBJECTIVE_COLORS } from './constants';
 
@@ -239,57 +240,65 @@ const App: React.FC = () => {
     }
   };
   
-  if (view === 'landing') {
-    return (
-      <LandingPage 
-        onStart={handleStartApp} 
-        hasData={hasData()} 
-      />
-    );
-  }
-
-  if (templateToImport) {
-    return (
-        <TemplateView 
-            objective={templateToImport.objective}
-            tasks={templateToImport.tasks}
-            onImport={handleImportTemplate}
-            onCancel={handleCancelImport}
+  const renderApp = () => {
+    if (view === 'landing') {
+      return (
+        <LandingPage 
+          onStart={handleStartApp} 
+          hasData={hasData()} 
         />
-    );
-  }
+      );
+    }
 
-  if (isSharedView) {
-    return <SharedView objectives={objectives} tasks={tasks} />;
-  }
+    if (templateToImport) {
+      return (
+          <TemplateView 
+              objective={templateToImport.objective}
+              tasks={templateToImport.tasks}
+              onImport={handleImportTemplate}
+              onCancel={handleCancelImport}
+          />
+      );
+    }
+
+    if (isSharedView) {
+      return <SharedView objectives={objectives} tasks={tasks} />;
+    }
+
+    return (
+      <Layout step={step} setStep={setStep} trackEvent={trackEvent}>
+        {step === 1 && (
+          <ObjectiveView objectives={objectives} setObjectives={setObjectives} onNext={handleNext} />
+        )}
+        {step === 2 && (
+          <ConstraintsView schedule={schedule} setSchedule={setSchedule} onNext={handleNext} trackEvent={trackEvent} />
+        )}
+        {step === 3 && (
+          <TasksView objectives={objectives} tasks={tasks} setTasks={setTasks} onNext={handleNext} trackEvent={trackEvent} />
+        )}
+        {step === 4 && (
+          <PlanningView objectives={objectives} tasks={tasks} setTasks={setTasks} schedule={schedule} onNext={handleNext} trackEvent={trackEvent} />
+        )}
+        {step === 5 && (
+          <Dashboard
+            objectives={objectives}
+            tasks={tasks}
+            setTasks={setTasks}
+            onResetProgress={handleResetProgress}
+            onClearAll={handleClearAll}
+            trackEvent={trackEvent}
+            showToast={showToast}
+          />
+        )}
+        <Toast message={toast.message} isVisible={toast.visible} onClose={hideToast} type={toast.type} />
+      </Layout>
+    );
+  };
 
   return (
-    <Layout step={step} setStep={setStep} trackEvent={trackEvent}>
-      {step === 1 && (
-        <ObjectiveView objectives={objectives} setObjectives={setObjectives} onNext={handleNext} />
-      )}
-      {step === 2 && (
-        <ConstraintsView schedule={schedule} setSchedule={setSchedule} onNext={handleNext} trackEvent={trackEvent} />
-      )}
-      {step === 3 && (
-        <TasksView objectives={objectives} tasks={tasks} setTasks={setTasks} onNext={handleNext} trackEvent={trackEvent} />
-      )}
-      {step === 4 && (
-        <PlanningView objectives={objectives} tasks={tasks} setTasks={setTasks} schedule={schedule} onNext={handleNext} trackEvent={trackEvent} />
-      )}
-      {step === 5 && (
-        <Dashboard
-          objectives={objectives}
-          tasks={tasks}
-          setTasks={setTasks}
-          onResetProgress={handleResetProgress}
-          onClearAll={handleClearAll}
-          trackEvent={trackEvent}
-          showToast={showToast}
-        />
-      )}
-      <Toast message={toast.message} isVisible={toast.visible} onClose={hideToast} type={toast.type} />
-    </Layout>
+    <ErrorBoundary>
+      {renderApp()}
+    </ErrorBoundary>
   );
 };
 
