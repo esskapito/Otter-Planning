@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Otter - Ton Planning</title>
+    <script>
+      // Polyfill for process.env.NODE_ENV to prevent "Uncaught ReferenceError: process is not defined"
+      window.process = {
+        env: {
+          NODE_ENV: 'production'
+        }
+      };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Nunito', 'sans-serif'],
+            },
+            colors: {
+              // Pastel "Otter" Palette overrides
+              indigo: {
+                50: '#F5F3FF',  // Very light violet
+                100: '#EDE9FE',
+                200: '#DDD6FE',
+                300: '#C4B5FD',
+                400: '#A78BFA',
+                500: '#8B5CF6', // Light Violet
+                600: '#7C3AED', // Slightly darker for text legibility
+                700: '#6D28D9',
+                800: '#5B21B6',
+                900: '#4C1D95',
+              },
+              slate: {
+                50: '#FAFAF9', // Stone-50 (Warmer)
+                100: '#F5F5F4',
+                200: '#E7E5E4',
+                300: '#D6D3D1',
+                400: '#A8A29E',
+                500: '#78716C',
+                600: '#57534E',
+                700: '#44403C',
+                800: '#292524',
+                900: '#1C1917',
+                950: '#0C0A09',
+              },
+              rose: {
+                50: '#FFF1F2',
+                500: '#FB7185', // Pastel Rose
+                600: '#F43F5E',
+              },
+              emerald: {
+                50: '#ECFDF5',
+                500: '#34D399', // Pastel Mint
+                600: '#10B981',
+              },
+              amber: {
+                50: '#FFFBEB',
+                500: '#FBBF24',
+                600: '#F59E0B',
+              }
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.5s ease-out forwards',
+              'float': 'float 6s ease-in-out infinite',
+              'slide-up': 'slideUp 0.5s ease-out forwards',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              slideUp: {
+                '0%': { opacity: '0', transform: 'translateY(20px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-10px)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      body { font-family: 'Nunito', sans-serif; }
+      
+      /* Custom scrollbar */
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #D6D3D1; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: #A8A29E; }
+      
+      /* Dark mode scrollbar */
+      .dark ::-webkit-scrollbar-thumb { background: #44403C; }
+      .dark ::-webkit-scrollbar-thumb:hover { background: #57534E; }
+
+      /* Utility to hide scrollbar but keep functionality */
+      .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+      }
+      .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+      }
+
+      .pattern-diagonal-lines {
+          background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(244, 63, 94, 0.05) 5px, rgba(244, 63, 94, 0.05) 10px);
+      }
+      .dark .pattern-diagonal-lines {
+          background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(244, 63, 94, 0.1) 5px, rgba(244, 63, 94, 0.1) 10px);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "react-dom/": "https://esm.sh/react-dom@18.2.0/",
+    "react": "https://esm.sh/react@18.2.0",
+    "react/": "https://esm.sh/react@18.2.0/",
+    "recharts": "https://esm.sh/recharts@2.12.3?external=react,react-dom"
+  }
+}
+</script>
+    <script async src="https://cdn.silkhq.com/silk.js"></script>
+</head>
+  <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased transition-colors duration-200">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
