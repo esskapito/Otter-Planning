@@ -23,7 +23,7 @@ export interface Objective {
 export interface Subtask {
   id: string;
   title: string;
-  isCompleted: boolean;
+  completedInSlots: string[];
 }
 
 export interface Task {

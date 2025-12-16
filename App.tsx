@@ -102,7 +102,7 @@ const App: React.FC = () => {
                 repeatCount: t.repeatCount || 1,
                 isRecurring: t.isRecurring ?? true,
                 scheduledSlots: [], completedSlots: [],
-                subtasks: (t.subtasks || []).map((st: any) => ({ id: '', title: st.title, isCompleted: false }))
+                subtasks: (t.subtasks || []).map((st: any) => ({ id: '', title: st.title, completedInSlots: [] }))
               }));
               setTemplateToImport({ objective: templateData.objective, tasks: hydratedTasks });
               setView('app'); // Go to app view, which will be intercepted to show TemplateView
@@ -154,7 +154,13 @@ const App: React.FC = () => {
           const validTasks = data.tasks.map((t: any) => ({
              ...t,
              objectiveId: t.objectiveId || (data.objective ? 'default' : ''),
-             subtasks: Array.isArray(t.subtasks) ? t.subtasks : [], 
+             subtasks: Array.isArray(t.subtasks) 
+                ? t.subtasks.map((st: any) => ({
+                    id: st.id,
+                    title: st.title,
+                    completedInSlots: Array.isArray(st.completedInSlots) ? st.completedInSlots : []
+                  }))
+                : [],
              scheduledSlots: Array.isArray(t.scheduledSlots) ? t.scheduledSlots : (t.scheduledSlotId ? [t.scheduledSlotId] : []),
              completedSlots: Array.isArray(t.completedSlots) ? t.completedSlots : (t.status === 'Fait' && t.scheduledSlotId ? [t.scheduledSlotId] : []),
              repeatCount: t.repeatCount || 1,
@@ -234,7 +240,7 @@ const App: React.FC = () => {
       trackEvent('progress_reset');
       setTasks(tasks.map(t => {
         if (t.isRecurring) {
-          return { ...t, status: TaskStatus.PENDING, completedSlots: [], subtasks: t.subtasks.map(st => ({ ...st, isCompleted: false })) };
+          return { ...t, status: TaskStatus.PENDING, completedSlots: [], subtasks: t.subtasks.map(st => ({ ...st, completedInSlots: [] })) };
         } else {
            if (t.status === TaskStatus.COMPLETED || (t.scheduledSlots.length > 0 && t.completedSlots.length === t.scheduledSlots.length)) {
              return { ...t, scheduledSlots: [], status: TaskStatus.COMPLETED };

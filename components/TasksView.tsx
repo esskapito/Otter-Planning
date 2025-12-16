@@ -74,7 +74,7 @@ export const TasksView: React.FC<Props> = ({ objectives, tasks, setTasks, onNext
           ...t,
           subtasks: [
             ...t.subtasks,
-            { id: generateId(), title: newSubtaskTitle, isCompleted: false }
+            { id: generateId(), title: newSubtaskTitle, completedInSlots: [] }
           ]
         };
       }

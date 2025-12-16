@@ -67,15 +67,26 @@ export const Dashboard: React.FC<Props> = ({ objectives, tasks, setTasks, onRese
     }));
   };
 
-  const toggleSubtask = (taskId: string, subtaskId: string) => {
+  const toggleSubtask = (taskId: string, subtaskId: string, slotId: string) => {
     setTasks(tasks.map(t => {
       if (t.id !== taskId) return t;
-      const updatedSubtasks = t.subtasks.map(st => 
-        st.id === subtaskId ? { ...st, isCompleted: !st.isCompleted } : st
-      );
+      
+      const updatedSubtasks = t.subtasks.map(st => {
+        if (st.id !== subtaskId) return st;
+        
+        const isCompletedInSlot = st.completedInSlots.includes(slotId);
+        
+        const newCompletedSlots = isCompletedInSlot
+          ? st.completedInSlots.filter(s => s !== slotId)
+          : [...st.completedInSlots, slotId];
+          
+        return { ...st, completedInSlots: newCompletedSlots };
+      });
+      
       return { ...t, subtasks: updatedSubtasks };
     }));
   };
+
 
   const categoryData = Object.values(Category).map(cat => ({
     name: cat,
@@ -132,19 +143,22 @@ export const Dashboard: React.FC<Props> = ({ objectives, tasks, setTasks, onRese
             </div>
             {isExpanded && t.subtasks.length > 0 && (
               <div className="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 pl-6">
-                <div className="text-xs font-bold text-slate-400 uppercase mb-2">Étapes (Global)</div>
+                <div className="text-xs font-bold text-slate-400 uppercase mb-2">Étapes pour cette session</div>
                 <ul className="space-y-2">
-                  {t.subtasks.map(st => (
-                    <li key={st.id} className="flex items-center text-sm">
-                      <button
-                        onClick={() => toggleSubtask(t.id, st.id)}
-                        className={`w-5 h-5 rounded-md border mr-2 flex items-center justify-center transition-colors ${st.isCompleted ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300 hover:border-indigo-400 dark:border-slate-600 dark:hover:border-indigo-500'}`}
-                      >
-                        {st.isCompleted && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-                      </button>
-                      <span className={`${st.isCompleted ? 'line-through text-slate-400 dark:text-slate-600' : 'text-slate-700 dark:text-slate-300'}`}>{st.title}</span>
-                    </li>
-                  ))}
+                  {t.subtasks.map(st => {
+                    const isSubtaskCompletedForSlot = st.completedInSlots.includes(slotId);
+                    return (
+                      <li key={st.id} className="flex items-center text-sm">
+                        <button
+                          onClick={() => toggleSubtask(t.id, st.id, slotId)}
+                          className={`w-5 h-5 rounded-md border mr-2 flex items-center justify-center transition-colors ${isSubtaskCompletedForSlot ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300 hover:border-indigo-400 dark:border-slate-600 dark:hover:border-indigo-500'}`}
+                        >
+                          {isSubtaskCompletedForSlot && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                        </button>
+                        <span className={`${isSubtaskCompletedForSlot ? 'line-through text-slate-400 dark:text-slate-600' : 'text-slate-700 dark:text-slate-300'}`}>{st.title}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}
@@ -179,7 +193,7 @@ export const Dashboard: React.FC<Props> = ({ objectives, tasks, setTasks, onRese
                     className="p-2 rounded-full text-slate-400 hover:bg-slate-100 dark:text-slate-500 dark:hover:bg-slate-700"
                     title="Partager comme template"
                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" /></svg>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367-2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" /></svg>
                  </button>
                </div>
                <h3 className="font-bold text-slate-900 dark:text-white mb-1 pl-2 pr-8">{obj.title}</h3>
