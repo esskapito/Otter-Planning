@@ -3,6 +3,7 @@ import { Task, TaskStatus, Category, Objective, Subtask } from '../types';
 import { CATEGORY_COLORS, CATEGORY_EMOJIS, DAYS_OF_WEEK } from '../constants';
 import { PieChart, Pie, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { BottomSheet } from './BottomSheet';
+import { ShareSheet } from './ShareSheet';
 
 interface Props {
   objectives: Objective[];
@@ -22,27 +23,17 @@ const getTodayIndex = () => {
 export const Dashboard: React.FC<Props> = ({ objectives, tasks, setTasks, onResetProgress, onClearAll, trackEvent, showToast }) => {
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [activeDay, setActiveDay] = useState(getTodayIndex());
-  const [copyStatus, setCopyStatus] = useState('Partager mon planning');
   const [mobileTab, setMobileTab] = useState<'agenda' | 'stats'>('agenda');
   const [isDaySheetOpen, setIsDaySheetOpen] = useState(false);
+  const [objectiveToShare, setObjectiveToShare] = useState<null | { objective: Objective, tasks: Task[] }>(null);
 
-  const handleShare = () => {
-    trackEvent('share_button_clicked');
-    const dataToShare = { objectives, tasks };
-    const jsonString = JSON.stringify(dataToShare);
-    const encodedData = btoa(jsonString);
-    const url = `${window.location.origin}${window.location.pathname}#shared=${encodedData}`;
+  const handleShareObjective = (objectiveId: string) => {
+    trackEvent('share_objective_clicked');
+    const objective = objectives.find(o => o.id === objectiveId);
+    if (!objective) return;
 
-    navigator.clipboard.writeText(url).then(() => {
-      setCopyStatus('Lien copié !');
-      showToast('Lien copié dans le presse-papier !');
-      setTimeout(() => setCopyStatus('Partager mon planning'), 2000);
-    }).catch(err => {
-      console.error('Failed to copy link: ', err);
-      setCopyStatus('Erreur de copie');
-      showToast('Échec de la copie du lien', 'error');
-      setTimeout(() => setCopyStatus('Partager mon planning'), 2000);
-    });
+    const associatedTasks = tasks.filter(t => t.objectiveId === objectiveId);
+    setObjectiveToShare({ objective, tasks: associatedTasks });
   };
 
   // Stats calculation
@@ -180,9 +171,18 @@ export const Dashboard: React.FC<Props> = ({ objectives, tasks, setTasks, onRese
           const objCompletedSlots = objTasks.reduce((acc, t) => acc + (t.completedSlots?.length || 0), 0);
           const objProgress = objTotalSlots === 0 ? 0 : Math.round((objCompletedSlots / objTotalSlots) * 100);
           return (
-            <div key={obj.id} className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 relative overflow-hidden transition-colors">
+            <div key={obj.id} className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 relative overflow-hidden transition-colors group">
                <div className="absolute top-0 left-0 w-1.5 h-full" style={{backgroundColor: obj.color}}></div>
-               <h3 className="font-bold text-slate-900 dark:text-white mb-1 pl-2">{obj.title}</h3>
+               <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                 <button 
+                    onClick={() => handleShareObjective(obj.id)} 
+                    className="p-2 rounded-full text-slate-400 hover:bg-slate-100 dark:text-slate-500 dark:hover:bg-slate-700"
+                    title="Partager comme template"
+                 >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" /></svg>
+                 </button>
+               </div>
+               <h3 className="font-bold text-slate-900 dark:text-white mb-1 pl-2 pr-8">{obj.title}</h3>
                <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 pl-2">{objTotalSlots} sessions prévues</p>
                <div className="pl-2">
                  <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1"><span>Progression</span><span>{objProgress}%</span></div>
@@ -328,15 +328,16 @@ export const Dashboard: React.FC<Props> = ({ objectives, tasks, setTasks, onRese
               <p className="text-slate-500 dark:text-slate-400 text-xs">Utilisez ces options pour gérer votre planning.</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto flex-shrink-0">
-               <button onClick={handleShare} className="px-4 py-3 sm:py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 text-sm font-medium transition-colors flex items-center justify-center gap-2">
-                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" /></svg>
-                 {copyStatus}
-               </button>
                <button onClick={onResetProgress} className="px-4 py-3 sm:py-2 border border-amber-300 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 dark:bg-amber-900/30 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/50 text-sm font-medium transition-colors">Réinitialiser</button>
                <button onClick={onClearAll} className="px-4 py-3 sm:py-2 border border-rose-300 bg-rose-50 text-rose-700 rounded-lg hover:bg-rose-100 dark:bg-rose-900/30 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-rose-900/50 text-sm font-medium transition-colors">Tout effacer</button>
             </div>
          </div>
       </div>
+      <ShareSheet 
+        data={objectiveToShare} 
+        onClose={() => setObjectiveToShare(null)}
+        showToast={showToast}
+      />
     </div>
   );
 };
