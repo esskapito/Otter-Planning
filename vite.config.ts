@@ -8,6 +8,6 @@ export default defineConfig({
     hmr: {
       clientPort: 443
     },
-    allowedHosts: ['rabbit-planning.onrender.com']
+    allowedHosts: ['otter-planning.onrender.com']
   }
 });
