@@ -1,24 +1,23 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 
-interface Props {
-  children: ReactNode;
+interface ErrorBoundaryProps {
+  children?: ReactNode;
 }
 
-interface State {
+interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// FIX: Explicitly extending Component and providing a constructor to ensure that the 'props' property from the base class is properly recognized by the TypeScript compiler.
-export class ErrorBoundary extends Component<Props, State> {
-  // FIX: Initializing state via constructor to improve compatibility with certain TypeScript configurations.
-  constructor(props: Props) {
+// FIX: Explicitly extending React.Component and providing a constructor to ensure that 'props' and 'state' are correctly recognized by the TypeScript compiler.
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = {
       hasError: false,
     };
   }
 
-  static getDerivedStateFromError(_: Error): State {
+  static getDerivedStateFromError(_: Error): ErrorBoundaryState {
     // Update state so the next render will show the fallback UI.
     return { hasError: true };
   }
@@ -29,6 +28,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   render() {
+    // FIX: Using this.state and this.props which are now properly inherited from React.Component
     if (this.state.hasError) {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950 p-4">

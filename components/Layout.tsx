@@ -154,7 +154,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 )}
               </button>
 
-              {/* User Account Section - Desktop Only when logged out */}
+              {/* User Account Section - Hidden on Mobile when logged out */}
               <div className="relative">
                 {currentUser ? (
                   <button 

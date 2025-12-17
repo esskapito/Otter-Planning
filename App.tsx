@@ -32,7 +32,8 @@ const decodeFromHash = (encodedData: string): string | null => {
   }
 };
 
-const App: React.FC = () => {
+// FIX: Removed React.FC typing to avoid potential issues with children props and explicit function signatures in strict environments
+const App = () => {
   const [view, setView] = useState<'landing' | 'app'>('landing');
   const [activeApp, setActiveApp] = useState<'plan' | 'note'>('plan');
   const [step, setStep] = useState(1);
@@ -251,6 +252,7 @@ const App: React.FC = () => {
     );
   };
 
+  // FIX: Properly passing children to ErrorBoundary as renderApp() result
   return <ErrorBoundary>{renderApp()}</ErrorBoundary>;
 };
 

@@ -2,13 +2,12 @@ import { User, Objective, Task, ScheduleSlot, Note, NoteCategory } from '../type
 import { DEFAULT_NOTE_CATEGORIES } from '../constants';
 
 /**
- * 🐇 RABBIT CLOUD DATABASE CONFIGURATION
- * Using KVDB.io (Public Bucket) as a high-performance JSON storage.
- * This allows true cross-device synchronization without a complex backend.
+ * 🐇 RABBIT CLOUD DATABASE v2.1
+ * Using KVDB.io with enhanced error handling for school environments.
  */
 
-// A unique bucket ID for your students project
-const BUCKET_ID = 'Kq7u7C4mN5vXy7vA5pE8z2'; 
+// A fresh, unique bucket ID for your project
+const BUCKET_ID = 'rabbit_prod_v2_f29k3l'; 
 const BASE_URL = `https://kvdb.io/${BUCKET_ID}`;
 
 interface UserRecord {
@@ -34,39 +33,49 @@ interface RegistrySchema {
 }
 
 export const databaseService = {
-  // Helper to handle fetch with better error reporting
+  // Enhanced request helper with better error/404 handling
   async _request(key: string, method: 'GET' | 'PUT' = 'GET', body?: any) {
     const url = `${BASE_URL}/${key}`;
     try {
       const options: RequestInit = {
         method,
         headers: { 'Content-Type': 'application/json' },
+        mode: 'cors'
       };
       if (body) options.body = JSON.stringify(body);
 
       const response = await fetch(url, options);
       
+      // Handle 404 as "Empty/Not Found" rather than an exception
+      if (response.status === 404) {
+        return null;
+      }
+
       if (!response.ok) {
-        if (method === 'GET' && response.status === 404) return null;
-        throw new Error(`Erreur Serveur: ${response.status}`);
+        throw new Error(`HTTP ${response.status}`);
       }
       
       return method === 'GET' ? await response.json() : true;
     } catch (e) {
-      console.error(`Database request failed for ${key}:`, e);
-      throw new Error("Impossible de contacter la base de données. Vérifiez votre connexion.");
+      // For background saves (PUT), we log but don't throw to avoid interrupting the user
+      if (method === 'PUT') {
+        console.warn(`Sync failed for ${key}:`, e);
+        return false;
+      }
+      // For GET (critical loads), we log more details
+      console.error(`Load failed for ${key}:`, e);
+      throw e;
     }
   },
 
-  // 1. Get/Create the student registry
   async _getRegistry(): Promise<RegistrySchema> {
-    const data = await this._request('registry');
-    return data || { users: [] };
-  },
-
-  // 2. Save the registry
-  async _saveRegistry(registry: RegistrySchema) {
-    await this._request('registry', 'PUT', registry);
+    try {
+      const data = await this._request('registry');
+      return data || { users: [] };
+    } catch (e) {
+      // If registry itself is unreachable, return empty instead of crashing
+      return { users: [] };
+    }
   },
 
   async signup(email: string, name: string, password: string, avatarColor: string): Promise<User> {
@@ -74,7 +83,7 @@ export const databaseService = {
     const cleanEmail = email.toLowerCase().trim();
     
     if (registry.users.find(u => u.email === cleanEmail)) {
-      throw new Error("Cet email est déjà utilisé dans la base cloud.");
+      throw new Error("Cet email est déjà utilisé.");
     }
 
     const newUser: UserRecord = {
@@ -95,7 +104,7 @@ export const databaseService = {
     await this._request(`data_${newUser.id}`, 'PUT', initialData);
 
     registry.users.push(newUser);
-    await this._saveRegistry(registry);
+    await this._request('registry', 'PUT', registry);
 
     return { id: newUser.id, email: newUser.email, name: newUser.name, avatarColor: newUser.avatarColor };
   },
@@ -104,7 +113,7 @@ export const databaseService = {
     const registry = await this._getRegistry();
     const cleanEmail = email.toLowerCase().trim();
     
-    // For auto-login from session, we might not have a password
+    // Find user record. Note: during auto-login password might be empty.
     const userRecord = registry.users.find(u => 
         u.email === cleanEmail && (password === '' || u.password === password)
     );
@@ -118,19 +127,19 @@ export const databaseService = {
       avatarColor: userRecord.avatarColor 
     };
 
-    // Fetch the specific user's partition
-    const data = await this._request(`data_${user.id}`);
-    
-    if (!data) {
-        // Fallback for edge cases
-        return { user, data: { plan: { objectives: [], tasks: [], schedule: [] }, notes: [], noteCategories: DEFAULT_NOTE_CATEGORIES } };
-    }
+    // Fetch the data. If 404 (null), use default state (Self-Healing)
+    const remoteData = await this._request(`data_${user.id}`);
+    const data: UserDataPackage = remoteData || { 
+      plan: { objectives: [], tasks: [], schedule: [] }, 
+      notes: [], 
+      noteCategories: DEFAULT_NOTE_CATEGORIES 
+    };
 
     return { user, data };
   },
 
   async saveUserData(userId: string, data: UserDataPackage) {
-    // Fire and forget PUT to save progress in background
-    this._request(`data_${userId}`, 'PUT', data).catch(e => console.warn("Background save failed", e));
+    // Background task: no 'await' in caller to keep UI snappy
+    this._request(`data_${userId}`, 'PUT', data);
   }
 };
