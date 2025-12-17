@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -8,9 +8,9 @@ interface State {
   hasError: boolean;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
-  // FIX: The constructor-based state initialization was causing type errors where `this.state` and `this.props` were not recognized.
-  // Switched to a class property for state initialization, which is a more modern and stable approach in React class components.
+// FIX: Explicitly extending React.Component to ensure that the 'props' property from the base class is properly recognized by the TypeScript compiler.
+export class ErrorBoundary extends React.Component<Props, State> {
+  // FIX: Using class property for state initialization which is more compatible with current React TypeScript definitions.
   state: State = {
     hasError: false,
   };
