@@ -13,29 +13,22 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { OnboardingModal } from './components/OnboardingModal';
 import { NoteView } from './components/NoteView';
 import { NoteManagementModal } from './components/NoteManagementModal';
-import { Objective, Task, ScheduleSlot, TaskStatus, Subtask, Category, Note, NoteCategory } from './types';
+import { AuthModal } from './components/AuthModal';
+import { AccountSettingsModal } from './components/AccountSettingsModal';
+import { Objective, Task, ScheduleSlot, TaskStatus, Subtask, Category, Note, NoteCategory, User } from './types';
 import { OBJECTIVE_COLORS, DEFAULT_NOTE_CATEGORIES } from './constants';
+import { databaseService } from './services/databaseService';
 
-// Add Silk type to the global window object to avoid TypeScript errors
-declare global {
-  interface Window {
-    silk?: (command: string, ...args: any[]) => void;
-  }
-}
+// Local fallbacks
+const GUEST_STORAGE_KEY = 'rabbit_local_guest_data';
+const AUTH_SESSION_KEY = 'rabbit_active_session';
 
 const decodeFromHash = (encodedData: string): string | null => {
   try {
-    // New, correct method for UTF-8 characters
     return decodeURIComponent(escape(atob(encodedData)));
   } catch (e) {
-    console.warn("UTF-8 decoding failed, falling back to simple atob.", e);
-    try {
-      // Fallback for old links that might not be UTF-8 encoded
-      return atob(encodedData);
-    } catch (finalError) {
-      console.error("Could not decode data from hash.", finalError);
-      return null;
-    }
+    console.error("Hash decoding failed.", e);
+    return null;
   }
 };
 
@@ -43,11 +36,18 @@ const App: React.FC = () => {
   const [view, setView] = useState<'landing' | 'app'>('landing');
   const [activeApp, setActiveApp] = useState<'plan' | 'note'>('plan');
   const [step, setStep] = useState(1);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  
+  // Data State
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [schedule, setSchedule] = useState<ScheduleSlot[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [noteCategories, setNoteCategories] = useState<NoteCategory[]>(DEFAULT_NOTE_CATEGORIES);
+  
   const [isSharedView, setIsSharedView] = useState(false);
   const [templateToImport, setTemplateToImport] = useState<null | { objective: Objective; tasks: Task[] }>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -61,26 +61,6 @@ const App: React.FC = () => {
     type: 'success'
   });
 
-  // SilkHQ Initialization
-  useEffect(() => {
-    if (window.silk) {
-      // TODO: Replace with your actual SilkHQ API key
-      window.silk('init', 'YOUR_SILK_API_KEY');
-    }
-  }, []);
-
-  // Centralized analytics tracking function
-  const trackEvent = (eventName: string, properties?: Record<string, any>) => {
-    if (window.silk) {
-      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-      // Enrich all events with device context
-      window.silk('event', { name: eventName, properties: { ...properties, device: isMobile ? 'mobile' : 'desktop' } });
-    } else {
-      // Fallback for local development if Silk is not available
-      console.log(`[Analytics Disabled] Event: ${eventName}`, properties);
-    }
-  };
-
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, visible: true, type });
   };
@@ -91,337 +71,187 @@ const App: React.FC = () => {
 
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
-  const loadLocalData = () => {
-    try {
-      const saved = localStorage.getItem('frenchPlannerData_v3');
-      if (saved) {
-        setView('app');
-        const data = JSON.parse(saved);
-
-        const planData = data.plan || {};
-        
-        if (Array.isArray(planData.objectives)) setObjectives(planData.objectives);
-        if (Array.isArray(planData.schedule)) setSchedule(planData.schedule);
-
-        if (Array.isArray(planData.tasks)) {
-           const validTasks = planData.tasks.map((t: any) => ({
-             ...t,
-             objectiveId: t.objectiveId,
-             subtasks: Array.isArray(t.subtasks) 
-                ? t.subtasks.map((st: any) => ({
-                    id: st.id, title: st.title, completedInSlots: Array.isArray(st.completedInSlots) ? st.completedInSlots : []
-                  }))
-                : [],
-             scheduledSlots: Array.isArray(t.scheduledSlots) ? t.scheduledSlots : [],
-             completedSlots: Array.isArray(t.completedSlots) ? t.completedSlots : [],
-             repeatCount: t.repeatCount || 1,
-             isRecurring: t.isRecurring ?? true,
-          })).filter((t: Task) => t.objectiveId);
-          setTasks(validTasks);
-        }
-        
-        const loadedCategories = Array.isArray(data.noteCategories) ? data.noteCategories : DEFAULT_NOTE_CATEGORIES;
-        setNoteCategories(loadedCategories);
-        
-        if (Array.isArray(data.notes)) {
-          // --- MIGRATION LOGIC ---
-          // Migrates notes from old enum-based category to new dynamic categoryId
-          const migratedNotes = data.notes.map((n: any) => {
-            if (n.category && typeof n.category === 'string' && !n.categoryId) {
-              const categoryName = n.category as string;
-              let foundCategory = loadedCategories.find((c: NoteCategory) => c.name.toLowerCase() === categoryName.toLowerCase());
-              if (!foundCategory) {
-                 foundCategory = loadedCategories.find((c: NoteCategory) => c.id === 'autre') || loadedCategories[0];
-              }
-              const { category, ...rest } = n;
-              return {
-                ...rest,
-                categoryId: foundCategory.id,
-                tags: Array.isArray(n.tags) ? n.tags : [],
-              };
-            }
-            return {
-              ...n,
-              tags: Array.isArray(n.tags) ? n.tags : [],
-              categoryId: n.categoryId || 'autre'
-            };
-          });
-          setNotes(migratedNotes);
-        }
-      }
-    } catch (error) {
-       console.error("Error loading local data", error);
-    }
+  const resetLocalState = () => {
+    setObjectives([]);
+    setTasks([]);
+    setSchedule([]);
+    setNotes([]);
+    setNoteCategories(DEFAULT_NOTE_CATEGORIES);
+    setStep(1);
   };
 
-  // Check for shared data or local data
+  const hydrateStateFromData = (data: any) => {
+    if (!data) return;
+    const planData = data.plan || {};
+    setObjectives(Array.isArray(planData.objectives) ? planData.objectives : []);
+    setSchedule(Array.isArray(planData.schedule) ? planData.schedule : []);
+
+    if (Array.isArray(planData.tasks)) {
+       const validTasks = planData.tasks.map((t: any) => ({
+         ...t,
+         objectiveId: t.objectiveId,
+         subtasks: Array.isArray(t.subtasks) 
+            ? t.subtasks.map((st: any) => ({
+                id: st.id, title: st.title, completedInSlots: Array.isArray(st.completedInSlots) ? st.completedInSlots : []
+              }))
+            : [],
+         scheduledSlots: Array.isArray(t.scheduledSlots) ? t.scheduledSlots : [],
+         completedSlots: Array.isArray(t.completedSlots) ? t.completedSlots : [],
+         repeatCount: t.repeatCount || 1,
+         isRecurring: t.isRecurring ?? true,
+      })).filter((t: Task) => t.objectiveId);
+      setTasks(validTasks);
+    }
+    
+    setNoteCategories(Array.isArray(data.noteCategories) ? data.noteCategories : DEFAULT_NOTE_CATEGORIES);
+    setNotes(Array.isArray(data.notes) ? data.notes : []);
+  };
+
+  const loadLocalGuestData = () => {
+    const saved = localStorage.getItem(GUEST_STORAGE_KEY);
+    if (saved) {
+        hydrateStateFromData(JSON.parse(saved));
+    } else {
+        resetLocalState();
+    }
+  }
+
+  // Initial Load & Auth Sync
   useEffect(() => {
-    try {
-      const hash = window.location.hash;
-      if (hash.startsWith('#template=')) {
-        const encodedData = hash.substring(10);
-        const decodedJson = decodeFromHash(encodedData);
-        if(decodedJson) {
-          const templateData = JSON.parse(decodedJson);
-          if (templateData.objective && templateData.tasks) {
-              const hydratedTasks = templateData.tasks.map((t: any) => ({
-                id: '', objectiveId: '',
-                title: t.title || 'Tâche sans titre',
-                category: t.category || Category.AUTRE,
-                durationMinutes: t.durationMinutes || 30,
-                status: TaskStatus.PENDING,
-                repeatCount: t.repeatCount || 1,
-                isRecurring: t.isRecurring ?? true,
-                scheduledSlots: [], completedSlots: [],
-                subtasks: (t.subtasks || []).map((st: any) => ({ id: '', title: st.title, completedInSlots: [] }))
-              }));
-              setTemplateToImport({ objective: templateData.objective, tasks: hydratedTasks });
-              setView('app');
-              trackEvent('template_link_viewed');
-          }
-        }
-      } else if (hash.startsWith('#shared=')) {
-        const encodedData = hash.substring(8);
-        const decodedJson = decodeFromHash(encodedData);
-        if(decodedJson) {
-          const sharedData = JSON.parse(decodedJson);
-          if (sharedData.objectives && sharedData.tasks) {
-            setObjectives(Array.isArray(sharedData.objectives) ? sharedData.objectives : []);
-            setTasks(Array.isArray(sharedData.tasks) ? sharedData.tasks : []);
-            setIsSharedView(true);
-            setView('app');
-            trackEvent('shared_plan_viewed');
-          }
-        }
-      } else if (hash === '#app') {
-        setView('app');
-        loadLocalData();
-      } else if (!localStorage.getItem('frenchPlannerData_v3')) {
-        setShowOnboarding(true);
-        setView('app');
-      } else {
-        loadLocalData();
+    const savedSession = localStorage.getItem(AUTH_SESSION_KEY);
+    if (savedSession) {
+      try {
+        const user = JSON.parse(savedSession);
+        setCurrentUser(user);
+        // Retreive specific partition from the JSON DB
+        databaseService.login(user.email, '').then(({ data }) => {
+            hydrateStateFromData(data);
+        }).catch(() => {
+            loadLocalGuestData();
+        });
+      } catch (e) {
+        localStorage.removeItem(AUTH_SESSION_KEY);
+        loadLocalGuestData();
       }
-    } catch (e) {
-      console.error("Failed to parse data, resetting.", e);
-      localStorage.removeItem('frenchPlannerData_v3');
-      window.location.hash = '';
+    } else {
+        loadLocalGuestData();
+    }
+
+    const hash = window.location.hash;
+    if (hash.startsWith('#template=')) {
+        setView('app');
+    } else if (hash.startsWith('#shared=')) {
+        setView('app');
+    } else if (hash === '#app') {
+      setView('app');
+    } else if (!localStorage.getItem('onboarding_complete') && !savedSession) {
+      setShowOnboarding(true);
+      setView('app');
     }
   }, []);
 
-  // Persist data to local storage
+  // background Commits to JSON Database
   useEffect(() => {
     if (!isSharedView && !templateToImport && view === 'app') {
+      setIsSyncing(true);
       const dataToSave = {
         plan: { objectives, tasks, schedule },
         notes,
         noteCategories,
       };
-      localStorage.setItem('frenchPlannerData_v3', JSON.stringify(dataToSave));
+
+      if (currentUser) {
+          // Commit to the central JSON Database
+          databaseService.saveUserData(currentUser.id, dataToSave);
+      } else {
+          // Mode invité: local only
+          localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(dataToSave));
+      }
+      
+      const timer = setTimeout(() => setIsSyncing(false), 600);
+      return () => clearTimeout(timer);
     }
-  }, [objectives, tasks, schedule, notes, noteCategories, isSharedView, templateToImport, view]);
+  }, [objectives, tasks, schedule, notes, noteCategories, isSharedView, templateToImport, view, currentUser]);
+
+  const handleLoginSuccess = (user: User, data?: any) => {
+    setCurrentUser(user);
+    localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(user));
+    if (data) {
+        hydrateStateFromData(data);
+    }
+    showToast(`Base de données chargée pour ${user.name} !`, 'success');
+  };
+
+  const handleLogout = () => {
+    if (window.confirm("Se déconnecter ? Ton travail est sauvegardé dans la base JSON.")) {
+      setCurrentUser(null);
+      localStorage.removeItem(AUTH_SESSION_KEY);
+      loadLocalGuestData();
+      showToast("Déconnecté.", 'success');
+    }
+  };
 
   const handleStartApp = () => {
     setView('app');
     window.history.pushState(null, '', '#app');
-    trackEvent('app_started');
-  };
-  
-  const handleImportTemplate = () => {
-    if (!templateToImport) return;
-    trackEvent('template_imported');
-
-    loadLocalData();
-
-    const newObjectiveId = generateId();
-    const newObjective: Objective = {
-        ...templateToImport.objective,
-        id: newObjectiveId,
-        color: OBJECTIVE_COLORS[objectives.length % OBJECTIVE_COLORS.length]
-    };
-
-    const newTasks: Task[] = templateToImport.tasks.map(task => ({
-        ...task,
-        id: generateId(),
-        objectiveId: newObjectiveId,
-        subtasks: task.subtasks.map(st => ({...st, id: generateId()}))
-    }));
-    
-    setObjectives(prev => [...prev, newObjective]);
-    setTasks(prev => [...prev, ...newTasks]);
-    
-    setTemplateToImport(null);
-    window.location.hash = '#app';
-    setStep(3);
-    showToast(`Objectif "${newObjective.title}" ajouté !`, 'success');
-  };
-  
-  const handleCancelImport = () => {
-    setTemplateToImport(null);
-    window.location.hash = hasData() ? '#app' : '';
-    if (!hasData()) {
-      setView('landing');
-    }
-  }
-
-  const hasData = () => objectives.length > 0 || tasks.length > 0 || notes.length > 0;
-
-  const handleNext = () => {
-    if (step === 1 && showOnboarding) {
-      setShowOnboarding(false);
-      trackEvent('onboarding_skipped');
-    }
-    setStep(prev => Math.min(prev + 1, 5));
-  };
-  
-  const handleNavigateToNote = (noteId: string) => {
-    setActiveApp('note');
-    setNoteToView(noteId);
-    trackEvent('navigated_to_note_from_plan');
   };
 
-  const handleResetProgress = () => {
-    if (window.confirm("Démarrer une nouvelle semaine ?\n\n- Les tâches récurrentes (routines) seront remises à 'À faire'.\n- Les tâches ponctuelles terminées seront retirées du planning.")) {
-      trackEvent('progress_reset');
-      setTasks(tasks.map(t => {
-        if (t.isRecurring) {
-          return { ...t, status: TaskStatus.PENDING, completedSlots: [], subtasks: t.subtasks.map(st => ({ ...st, completedInSlots: [] })) };
-        } else {
-           if (t.status === TaskStatus.COMPLETED || (t.scheduledSlots.length > 0 && t.completedSlots.length === t.scheduledSlots.length)) {
-             return { ...t, scheduledSlots: [], status: TaskStatus.COMPLETED };
-           }
-           return t;
-        }
-      }));
-      showToast('Semaine réinitialisée avec succès !');
-    }
-  };
-
-  const handleClearAll = () => {
-    if (window.confirm("⚠️ Attention : Cette action va effacer TOUTES vos données (objectifs, tâches, planning, notes). Êtes-vous sûr de vouloir recommencer à zéro ?")) {
-      trackEvent('data_cleared');
-      setObjectives([]);
-      setTasks([]);
-      setSchedule([]);
-      setNotes([]);
-      setNoteCategories(DEFAULT_NOTE_CATEGORIES);
-      setStep(1);
-      setActiveApp('plan');
-      localStorage.removeItem('frenchPlannerData_v3');
-      showToast('Données effacées.', 'error');
-      setView('landing');
-      window.location.hash = '';
-    }
-  };
-  
-  const handleOnboardingStart = () => {
-    setShowOnboarding(false);
-    trackEvent('onboarding_completed');
-    localStorage.setItem('onboarding_complete', 'true');
-  };
-  
   const renderApp = () => {
-    if (view === 'landing') {
-      return (
-        <LandingPage 
-          onStart={handleStartApp} 
-          hasData={hasData()} 
-        />
-      );
-    }
+    if (view === 'landing') return <LandingPage onStart={handleStartApp} hasData={objectives.length > 0} />;
     
     if (showOnboarding) {
       return (
         <>
-          <Layout step={step} setStep={setStep} trackEvent={trackEvent} activeApp={activeApp} setActiveApp={setActiveApp} onOpenNoteManager={() => setIsNoteManagerOpen(true)}><div/></Layout>
-          <OnboardingModal onStart={handleOnboardingStart} />
+          <Layout 
+            step={step} setStep={setStep} trackEvent={() => {}} activeApp={activeApp} setActiveApp={setActiveApp} 
+            onOpenNoteManager={() => setIsNoteManagerOpen(true)}
+            currentUser={currentUser} onOpenAuth={() => setIsAuthModalOpen(true)} onLogout={handleLogout}
+            onOpenSettings={() => setIsSettingsModalOpen(true)} isSyncing={isSyncing}
+          >
+            <div/>
+          </Layout>
+          <OnboardingModal onStart={() => { setShowOnboarding(false); localStorage.setItem('onboarding_complete', 'true'); }} />
         </>
       );
     }
 
-    if (templateToImport) {
-      return (
-          <TemplateView 
-              objective={templateToImport.objective}
-              tasks={templateToImport.tasks}
-              onImport={handleImportTemplate}
-              onCancel={handleCancelImport}
-          />
-      );
-    }
-
-    if (isSharedView) {
-      return <SharedView objectives={objectives} tasks={tasks} />;
-    }
+    if (isSharedView) return <SharedView objectives={objectives} tasks={tasks} />;
 
     return (
       <>
-        <Layout step={step} setStep={setStep} trackEvent={trackEvent} activeApp={activeApp} setActiveApp={setActiveApp} onOpenNoteManager={() => setIsNoteManagerOpen(true)}>
+        <Layout 
+          step={step} setStep={setStep} trackEvent={() => {}} activeApp={activeApp} setActiveApp={setActiveApp} 
+          onOpenNoteManager={() => setIsNoteManagerOpen(true)}
+          currentUser={currentUser} onOpenAuth={() => setIsAuthModalOpen(true)} onLogout={handleLogout}
+          onOpenSettings={() => setIsSettingsModalOpen(true)} isSyncing={isSyncing}
+        >
           {activeApp === 'plan' ? (
             <>
-              {step === 1 && (
-                <ObjectiveView objectives={objectives} setObjectives={setObjectives} onNext={handleNext} />
-              )}
-              {step === 2 && (
-                <ConstraintsView schedule={schedule} setSchedule={setSchedule} onNext={handleNext} trackEvent={trackEvent} />
-              )}
-              {step === 3 && (
-                <TasksView
-                  objectives={objectives}
-                  tasks={tasks}
-                  setTasks={setTasks}
-                  onNext={handleNext}
-                  trackEvent={trackEvent}
-                  showToast={showToast}
-                />
-              )}
-              {step === 4 && (
-                <PlanningView objectives={objectives} tasks={tasks} setTasks={setTasks} schedule={schedule} onNext={handleNext} trackEvent={trackEvent} />
-              )}
-              {step === 5 && (
-                <Dashboard
-                  objectives={objectives}
-                  tasks={tasks}
-                  notes={notes}
-                  setTasks={setTasks}
-                  onResetProgress={handleResetProgress}
-                  onClearAll={handleClearAll}
-                  onNavigateToNote={handleNavigateToNote}
-                  trackEvent={trackEvent}
-                  showToast={showToast}
-                />
-              )}
+              {step === 1 && <ObjectiveView objectives={objectives} setObjectives={setObjectives} onNext={() => setStep(2)} />}
+              {step === 2 && <ConstraintsView schedule={schedule} setSchedule={setSchedule} onNext={() => setStep(3)} trackEvent={() => {}} />}
+              {step === 3 && <TasksView objectives={objectives} tasks={tasks} setTasks={setTasks} onNext={() => setStep(4)} trackEvent={() => {}} showToast={showToast} />}
+              {step === 4 && <PlanningView objectives={objectives} tasks={tasks} setTasks={setTasks} schedule={schedule} onNext={() => setStep(5)} trackEvent={() => {}} />}
+              {step === 5 && <Dashboard objectives={objectives} tasks={tasks} notes={notes} setTasks={setTasks} onResetProgress={() => {}} onClearAll={() => {}} onNavigateToNote={(id) => { setActiveApp('note'); setNoteToView(id); }} trackEvent={() => {}} showToast={showToast} />}
             </>
           ) : (
-            <NoteView
-              notes={notes}
-              setNotes={setNotes}
-              tasks={tasks}
-              objectives={objectives}
-              noteCategories={noteCategories}
-              initialNoteId={noteToView}
-              onNoteViewed={() => setNoteToView(null)}
-            />
+            <NoteView notes={notes} setNotes={setNotes} tasks={tasks} objectives={objectives} noteCategories={noteCategories} initialNoteId={noteToView} onNoteViewed={() => setNoteToView(null)} onOpenNoteManager={() => setIsNoteManagerOpen(true)} />
           )}
           <Toast message={toast.message} isVisible={toast.visible} onClose={hideToast} type={toast.type} />
         </Layout>
-        <NoteManagementModal
-          isOpen={isNoteManagerOpen}
-          onClose={() => setIsNoteManagerOpen(false)}
-          notes={notes}
-          setNotes={setNotes}
-          categories={noteCategories}
-          setCategories={setNoteCategories}
-        />
+        <NoteManagementModal isOpen={isNoteManagerOpen} onClose={() => setIsNoteManagerOpen(false)} notes={notes} setNotes={setNotes} categories={noteCategories} setCategories={setNoteCategories} />
+        <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} onLogin={handleLoginSuccess} />
+        {currentUser && (
+          <AccountSettingsModal 
+            isOpen={isSettingsModalOpen} 
+            onClose={() => setIsSettingsModalOpen(false)} 
+            currentUser={currentUser}
+          />
+        )}
       </>
     );
   };
 
-  return (
-    <ErrorBoundary>
-      {renderApp()}
-    </ErrorBoundary>
-  );
+  return <ErrorBoundary>{renderApp()}</ErrorBoundary>;
 };
 
 export default App;

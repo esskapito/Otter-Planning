@@ -126,7 +126,7 @@ export const Dashboard: React.FC<Props> = ({ objectives, tasks, notes, setTasks,
     const isExpanded = expandedTaskId === t.id;
     const isSlotCompleted = t.completedSlots?.includes(slotId);
     const hour = slotId.split('-')[1];
-    const linkedNote = notes.find(n => n.linkedTaskId === t.id);
+    const linkedNote = notes.find(n => n.linkedTaskIds.includes(t.id));
 
     return (
       <div key={slotId} className="group">

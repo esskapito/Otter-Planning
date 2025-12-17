@@ -9,21 +9,23 @@ interface State {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-  public state: State = {
-    hasError: false
+  // FIX: The constructor-based state initialization was causing type errors where `this.state` and `this.props` were not recognized.
+  // Switched to a class property for state initialization, which is a more modern and stable approach in React class components.
+  state: State = {
+    hasError: false,
   };
 
-  public static getDerivedStateFromError(_: Error): State {
+  static getDerivedStateFromError(_: Error): State {
     // Update state so the next render will show the fallback UI.
     return { hasError: true };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
     // You could also log the error to an error reporting service here
   }
 
-  public render() {
+  render() {
     if (this.state.hasError) {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950 p-4">

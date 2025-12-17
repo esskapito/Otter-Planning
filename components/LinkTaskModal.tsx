@@ -7,9 +7,10 @@ interface Props {
   tasks: Task[];
   objectives: Objective[];
   onLinkTask: (taskId: string) => void;
+  currentlyLinkedIds: string[];
 }
 
-export const LinkTaskModal: React.FC<Props> = ({ isOpen, onClose, tasks, objectives, onLinkTask }) => {
+export const LinkTaskModal: React.FC<Props> = ({ isOpen, onClose, tasks, objectives, onLinkTask, currentlyLinkedIds }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredTasksByObjective = useMemo(() => {
@@ -17,10 +18,11 @@ export const LinkTaskModal: React.FC<Props> = ({ isOpen, onClose, tasks, objecti
       ...obj,
       tasks: tasks.filter(task =>
         task.objectiveId === obj.id &&
+        !currentlyLinkedIds.includes(task.id) &&
         task.title.toLowerCase().includes(searchTerm.toLowerCase())
       )
     })).filter(obj => obj.tasks.length > 0);
-  }, [tasks, objectives, searchTerm]);
+  }, [tasks, objectives, searchTerm, currentlyLinkedIds]);
 
   if (!isOpen) return null;
 
@@ -42,7 +44,7 @@ export const LinkTaskModal: React.FC<Props> = ({ isOpen, onClose, tasks, objecti
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
           {filteredTasksByObjective.length === 0 ? (
             <div className="text-center text-slate-400 dark:text-slate-500 py-10">
-              Aucune tâche correspondante.
+              Aucune tâche disponible à lier.
             </div>
           ) : (
             <ul className="space-y-4">

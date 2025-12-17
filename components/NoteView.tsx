@@ -10,6 +10,7 @@ interface Props {
   noteCategories: NoteCategory[];
   initialNoteId: string | null;
   onNoteViewed: () => void;
+  onOpenNoteManager: () => void;
 }
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -19,7 +20,7 @@ const stripHtml = (html: string) => {
   return doc.body.textContent || "";
 };
 
-export const NoteView: React.FC<Props> = ({ notes, setNotes, tasks, objectives, noteCategories, initialNoteId, onNoteViewed }) => {
+export const NoteView: React.FC<Props> = ({ notes, setNotes, tasks, objectives, noteCategories, initialNoteId, onNoteViewed, onOpenNoteManager }) => {
   const [openNoteIds, setOpenNoteIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -66,7 +67,7 @@ export const NoteView: React.FC<Props> = ({ notes, setNotes, tasks, objectives, 
       id: generateId(),
       title: 'Nouvelle note',
       content: '',
-      linkedTaskId: null,
+      linkedTaskIds: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       categoryId: defaultCategory.id,
@@ -119,6 +120,13 @@ export const NoteView: React.FC<Props> = ({ notes, setNotes, tasks, objectives, 
             >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
             </button>
+            <button 
+                onClick={onOpenNoteManager}
+                className="hidden md:flex flex-shrink-0 p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 transition-colors"
+                title="Gérer les catégories et tags"
+            >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"></path></svg>
+            </button>
         </div>
         <select 
           value={categoryFilter}
@@ -160,7 +168,7 @@ export const NoteView: React.FC<Props> = ({ notes, setNotes, tasks, objectives, 
   );
 
   return (
-    <div className="h-full flex md:gap-4">
+    <div className="flex-1 flex md:gap-4">
       <div className={`w-full md:w-1/3 md:min-w-[280px] h-full ${openNoteIds.length > 0 && isMobile ? 'hidden' : 'block'}`}>
         {renderNoteList()}
       </div>

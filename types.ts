@@ -12,6 +12,13 @@ export enum TaskStatus {
   SKIPPED = 'Zappé'
 }
 
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  avatarColor: string;
+}
+
 export interface Objective {
   id: string;
   title: string;
@@ -53,7 +60,7 @@ export interface Note {
   id: string;
   title: string;
   content: string;
-  linkedTaskId: string | null;
+  linkedTaskIds: string[];
   createdAt: string; // ISO String
   updatedAt: string; // ISO String
   categoryId: string;
