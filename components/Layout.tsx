@@ -85,7 +85,7 @@ export const Layout: React.FC<LayoutProps> = ({
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            {/* Left: Branding & App Switcher */}
+            {/* Left: Branding */}
             <div className="flex items-center space-x-6">
               <div className="flex items-center space-x-3">
                 <div className="relative">
@@ -121,7 +121,7 @@ export const Layout: React.FC<LayoutProps> = ({
               </h1>
             </div>
             
-            {/* Right: Navigation & Auth & Utilities */}
+            {/* Right: Navigation & Utilities */}
             <div className="flex items-center gap-2 sm:gap-4">
                {/* Desktop Nav Steps */}
               {activeApp === 'plan' && (
@@ -154,7 +154,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 )}
               </button>
 
-              {/* User Account Section */}
+              {/* User Account Section - Desktop Only when logged out */}
               <div className="relative">
                 {currentUser ? (
                   <button 
