@@ -43,6 +43,23 @@ export interface Task {
   subtasks: Subtask[];
 }
 
+export interface NoteCategory {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface Note {
+  id: string;
+  title: string;
+  content: string;
+  linkedTaskId: string | null;
+  createdAt: string; // ISO String
+  updatedAt: string; // ISO String
+  categoryId: string;
+  tags: string[];
+}
+
 export interface ScheduleSlot {
   id: string;
   dayIndex: number; // 0 (Mon) - 6 (Sun)
@@ -54,5 +71,6 @@ export interface AppState {
   objectives: Objective[];
   tasks: Task[];
   schedule: ScheduleSlot[];
+  notes: Note[];
   currentStep: number;
 }

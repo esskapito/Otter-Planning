@@ -14,7 +14,7 @@ export const TemplateView: React.FC<Props> = ({ objective, tasks, onImport, onCa
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased">
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 py-4">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-xl font-bold">Vous avez reçu un template Otter !</h1>
+          <h1 className="text-xl font-bold">Vous avez reçu un template Rabbit !</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">Ajoutez cet objectif et ses tâches à votre planning.</p>
         </div>
       </header>
@@ -65,7 +65,7 @@ export const TemplateView: React.FC<Props> = ({ objective, tasks, onImport, onCa
             onClick={onImport}
             className="w-full sm:w-auto flex-1 py-4 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-2xl shadow-indigo-300 dark:shadow-indigo-900/50"
           >
-            🦦 Ajouter à mon Otter
+            🐇 Ajouter à mon Rabbit
           </button>
         </div>
       </footer>

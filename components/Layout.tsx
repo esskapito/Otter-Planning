@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
-import { OtterLogo } from './OtterLogo';
+import { RabbitLogo } from './RabbitLogo';
 
 interface LayoutProps {
   children: React.ReactNode;
   step: number;
   setStep: (step: number) => void;
   trackEvent: (eventName: string, properties?: Record<string, any>) => void;
+  activeApp: 'plan' | 'note';
+  setActiveApp: (app: 'plan' | 'note') => void;
+  onOpenNoteManager: () => void;
 }
 
 const steps = [
@@ -17,7 +20,7 @@ const steps = [
   { id: 5, label: 'Tableau de bord' }
 ];
 
-export const Layout: React.FC<LayoutProps> = ({ children, step, setStep, trackEvent }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, step, setStep, trackEvent, activeApp, setActiveApp, onOpenNoteManager }) => {
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('theme') === 'dark' ||
@@ -27,6 +30,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, step, setStep, trackEv
   });
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false;
+  });
 
   useEffect(() => {
     if (darkMode) {
@@ -38,6 +47,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, step, setStep, trackEv
     }
   }, [darkMode]);
   
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const handleThemeToggle = () => {
     trackEvent('theme_toggled', { theme: !darkMode ? 'dark' : 'light' });
     setDarkMode(!darkMode);
@@ -48,33 +63,50 @@ export const Layout: React.FC<LayoutProps> = ({ children, step, setStep, trackEv
     setIsMenuOpen(!isMenuOpen);
   };
 
+  const handleAppSwitch = (app: 'plan' | 'note') => {
+    trackEvent('app_switched', { app });
+    setActiveApp(app);
+  }
+
+  const isNoteAppOnMobile = activeApp === 'note' && isMobile;
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center space-x-3">
-              <OtterLogo className="w-10 h-10 drop-shadow-sm hover:scale-105 transition-transform cursor-pointer" />
-              <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Otter</h1>
+              <RabbitLogo className="w-10 h-10 drop-shadow-sm hover:scale-105 transition-transform cursor-pointer" />
+              <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                Rabbit <span className="text-indigo-500 capitalize">{activeApp}</span>
+              </h1>
             </div>
             
             <div className="flex items-center gap-2 sm:gap-4">
+              {/* App Switcher */}
+              <div className="hidden sm:flex bg-slate-100 dark:bg-slate-800 p-1 rounded-full items-center">
+                <button onClick={() => handleAppSwitch('plan')} className={`px-3 py-1 text-sm font-semibold rounded-full transition-colors ${activeApp === 'plan' ? 'bg-white text-indigo-600 shadow-sm dark:bg-slate-700 dark:text-indigo-300' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}>Plan</button>
+                <button onClick={() => handleAppSwitch('note')} className={`px-3 py-1 text-sm font-semibold rounded-full transition-colors ${activeApp === 'note' ? 'bg-white text-indigo-600 shadow-sm dark:bg-slate-700 dark:text-indigo-300' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}>Note</button>
+              </div>
+
                {/* Desktop Nav */}
-              <nav className="hidden md:flex space-x-1">
-                {steps.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setStep(s.id)}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                      step === s.id
-                        ? 'bg-slate-100 text-indigo-600 dark:bg-slate-800 dark:text-indigo-400'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800'
-                    }`}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </nav>
+              {activeApp === 'plan' && (
+                <nav className="hidden md:flex space-x-1">
+                  {steps.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => setStep(s.id)}
+                      className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                        step === s.id
+                          ? 'bg-slate-100 text-indigo-600 dark:bg-slate-800 dark:text-indigo-400'
+                          : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </nav>
+              )}
 
               {/* Theme Toggle */}
               <button 
@@ -104,17 +136,23 @@ export const Layout: React.FC<LayoutProps> = ({ children, step, setStep, trackEv
       {/* Mobile Sidebar */}
       <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)}>
          <div className="flex flex-col h-full">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                 <div className="flex items-center space-x-3">
-                    <OtterLogo className="w-8 h-8" />
-                    <span className="font-bold text-lg text-slate-900 dark:text-white">Otter</span>
+                    <RabbitLogo className="w-8 h-8" />
+                    <span className="font-bold text-lg text-slate-900 dark:text-white">Rabbit</span>
                 </div>
                 <button onClick={() => setIsMenuOpen(false)} className="p-2 -mr-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
-            <div className="flex-1 overflow-y-auto py-6 px-4 space-y-1">
-                {steps.map((s) => (
+             <div className="p-4">
+              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-full items-center">
+                <button onClick={() => {handleAppSwitch('plan'); setIsMenuOpen(false);}} className={`flex-1 text-center py-2 text-sm font-semibold rounded-full transition-colors ${activeApp === 'plan' ? 'bg-white text-indigo-600 shadow-sm dark:bg-slate-700 dark:text-indigo-300' : 'text-slate-500'}`}>Plan</button>
+                <button onClick={() => {handleAppSwitch('note'); setIsMenuOpen(false);}} className={`flex-1 text-center py-2 text-sm font-semibold rounded-full transition-colors ${activeApp === 'note' ? 'bg-white text-indigo-600 shadow-sm dark:bg-slate-700 dark:text-indigo-300' : 'text-slate-500'}`}>Note</button>
+              </div>
+             </div>
+            <div className="flex-1 overflow-y-auto py-2 px-4 space-y-1">
+                {activeApp === 'plan' && steps.map((s) => (
                     <button
                       key={s.id}
                       onClick={() => {
@@ -131,22 +169,32 @@ export const Layout: React.FC<LayoutProps> = ({ children, step, setStep, trackEv
                       {s.label}
                     </button>
                 ))}
+                 {activeApp === 'note' && (
+                  <div className="p-4 space-y-2">
+                    <p className="text-center text-sm text-slate-400 dark:text-slate-500">
+                      Gérez vos notes et liez-les à vos tâches.
+                    </p>
+                    <button onClick={() => { onOpenNoteManager(); setIsMenuOpen(false); }} className="w-full text-center py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Gérer les catégories & tags...
+                    </button>
+                  </div>
+                )}
             </div>
             <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
                <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm shadow-md">
-                    OT
+                    RB
                   </div>
                   <div>
-                    <div className="text-sm font-bold text-slate-900 dark:text-white">Otter App</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">Version 1.2</div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white">Rabbit App</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">Version 1.3</div>
                   </div>
                </div>
             </div>
          </div>
       </Sidebar>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+      <main className={`flex-1 max-w-7xl mx-auto w-full ${isNoteAppOnMobile ? '' : 'px-4 sm:px-6 lg:px-8 py-8'}`}>
         {children}
       </main>
     </div>

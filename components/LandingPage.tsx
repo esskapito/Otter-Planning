@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { OtterLogo } from './OtterLogo';
+import { RabbitLogo } from './RabbitLogo';
 
 interface Props {
   onStart: () => void;
@@ -70,8 +70,8 @@ export const LandingPage: React.FC<Props> = ({ onStart, hasData }) => {
       <nav className="border-b border-slate-200 dark:border-slate-800 backdrop-blur-md sticky top-0 z-50 bg-white/80 dark:bg-slate-950/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <OtterLogo className="w-10 h-10 drop-shadow-md hover:scale-105 transition-transform" />
-            <span className="font-bold text-xl text-slate-900 dark:text-white font-sans tracking-tight">Otter</span>
+            <RabbitLogo className="w-10 h-10 drop-shadow-md hover:scale-105 transition-transform" />
+            <span className="font-bold text-xl text-slate-900 dark:text-white font-sans tracking-tight">Rabbit</span>
           </div>
           <button onClick={toggleTheme} className="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
             {darkMode ? (
@@ -88,14 +88,14 @@ export const LandingPage: React.FC<Props> = ({ onStart, hasData }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24 grid lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-8 animate-fade-in relative z-10">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight animate-slide-up" style={{animationDelay: '0.1s'}}>
-              Ton planning <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">Otter</span>ment intelligent.
+              Ton planning <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">vraiment</span> intelligent.
             </h1>
             <p className="text-lg text-slate-600 dark:text-slate-400 max-w-lg animate-slide-up" style={{animationDelay: '0.2s'}}>
-              Otter est l'outil ultime pour organiser ta vie scolaire et tes projets persos. Fixe tes objectifs, bloque tes créneaux, et plonge dans la productivité.
+              Rabbit est l'outil ultime pour organiser ta vie scolaire et tes projets persos. Fixe tes objectifs, bloque tes créneaux, et plonge dans la productivité.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 animate-slide-up" style={{animationDelay: '0.3s'}}>
               <button onClick={onStart} className="px-8 py-4 bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 hover:bg-indigo-600 hover:scale-105 transition-all text-center">
-                {hasData ? 'Continuer avec Otter' : 'Commencer gratuitement'}
+                {hasData ? 'Continuer avec Rabbit' : 'Commencer gratuitement'}
               </button>
               <button onClick={() => document.getElementById('features')?.scrollIntoView({behavior: 'smooth'})} className="px-8 py-4 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all text-center">
                 Comment ça marche ?
@@ -107,7 +107,7 @@ export const LandingPage: React.FC<Props> = ({ onStart, hasData }) => {
                 <div className="w-8 h-8 rounded-full bg-slate-300 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[10px] font-bold">AL</div>
                 <div className="w-8 h-8 rounded-full bg-slate-400 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[10px] font-bold">MK</div>
               </div>
-              <p>Rejoins des étudiants organisés 🦦</p>
+              <p>Rejoins des étudiants organisés 🐇</p>
             </div>
           </div>
           
@@ -123,8 +123,8 @@ export const LandingPage: React.FC<Props> = ({ onStart, hasData }) => {
                          <div className="w-20 h-2 bg-slate-50 dark:bg-slate-700/50 rounded"></div>
                     </div>
                     <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center text-indigo-500">
-                        {/* Otter Logo Small */}
-                        <OtterLogo className="w-8 h-8" />
+                        {/* Rabbit Logo Small */}
+                        <RabbitLogo className="w-8 h-8" />
                     </div>
                 </div>
                 
@@ -190,7 +190,7 @@ export const LandingPage: React.FC<Props> = ({ onStart, hasData }) => {
 
       <footer className="bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 py-12">
         <div className="max-w-7xl mx-auto px-4 text-center">
-          <p className="text-slate-500 dark:text-slate-400 mb-4">© 2024 Otter App.</p>
+          <p className="text-slate-500 dark:text-slate-400 mb-4">© 2024 Rabbit App.</p>
           <div className="flex justify-center gap-6 text-sm text-slate-400">
              <a href="#" className="hover:text-slate-600 dark:hover:text-slate-300">Confidentialité</a>
              <a href="#" className="hover:text-slate-600 dark:hover:text-slate-300">Conditions</a>

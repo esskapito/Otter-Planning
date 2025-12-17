@@ -1,5 +1,5 @@
 import React from 'react';
-import { OtterLogo } from './OtterLogo';
+import { RabbitLogo } from './RabbitLogo';
 
 interface Props {
   onStart: () => void;
@@ -17,8 +17,8 @@ export const OnboardingModal: React.FC<Props> = ({ onStart }) => {
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
       <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-8 text-center animate-slide-up">
-        <OtterLogo className="w-20 h-20 mx-auto mb-4 drop-shadow-lg" />
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Bienvenue sur Otter !</h1>
+        <RabbitLogo className="w-20 h-20 mx-auto mb-4 drop-shadow-lg" />
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Bienvenue sur Rabbit !</h1>
         <p className="text-slate-600 dark:text-slate-400 mb-6">Prépare-toi à organiser ta semaine de la manière la plus simple et efficace possible.</p>
         
         <div className="space-y-3 text-left mb-8">

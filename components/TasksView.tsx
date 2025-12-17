@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Task, Category, TaskStatus, Objective, Subtask } from '../types';
 import { CATEGORY_COLORS } from '../constants';
+import { EditTaskModal } from './EditTaskModal';
 
 interface Props {
   objectives: Objective[];
@@ -8,11 +9,13 @@ interface Props {
   setTasks: (tasks: Task[]) => void;
   onNext: () => void;
   trackEvent: (eventName: string, properties?: Record<string, any>) => void;
+  showToast: (message: string, type?: 'success' | 'error') => void;
 }
 
-export const TasksView: React.FC<Props> = ({ objectives, tasks, setTasks, onNext, trackEvent }) => {
+export const TasksView: React.FC<Props> = ({ objectives, tasks, setTasks, onNext, trackEvent, showToast }) => {
   const [activeObjectiveId, setActiveObjectiveId] = useState<string>(objectives[0]?.id || '');
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false); // Mobile collapsible form
   
@@ -55,6 +58,20 @@ export const TasksView: React.FC<Props> = ({ objectives, tasks, setTasks, onNext
     setNewTask({ ...newTask, title: '' }); // Keep other settings
     setIsFormOpen(false); // Close form on mobile
   };
+  
+  const handleEditTask = (task: Task, e: React.MouseEvent) => {
+    e.stopPropagation();
+    trackEvent('task_edit_opened', { task_title: task.title });
+    setTaskToEdit(task);
+  };
+
+  const handleSaveTask = (updatedTask: Task) => {
+    trackEvent('task_edited', { task_title: updatedTask.title });
+    setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
+    setTaskToEdit(null);
+    showToast('Tâche modifiée avec succès!', 'success');
+  };
+
 
   const handleFormToggle = () => {
     trackEvent('mobile_task_form_toggle', { open: !isFormOpen });
@@ -271,29 +288,30 @@ export const TasksView: React.FC<Props> = ({ objectives, tasks, setTasks, onNext
                             {task.category}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2">
-                           {task.isRecurring && (
-                             <span title="Récurrent chaque semaine" className="text-xs text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 p-1 rounded">
-                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                             </span>
-                           )}
-                           {task.repeatCount > 1 && (
-                             <span className="text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">
-                               {task.repeatCount}x
-                             </span>
-                           )}
-                          <span className="text-xs text-slate-400 dark:text-slate-500 font-mono bg-slate-50 dark:bg-slate-900/50 px-1.5 py-0.5 rounded">{task.durationMinutes} min</span>
+                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => handleEditTask(task, e)}
+                            className="text-slate-400 hover:text-indigo-500 dark:text-slate-500 dark:hover:text-indigo-400 p-2 -mr-2 -mt-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L16.732 3.732z"></path></svg>
+                          </button>
                           <button
                             onClick={(e) => removeTask(task.id, e)}
-                            className="text-slate-300 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400 p-2 -mr-2 -mt-2 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-full" // Larger touch target
+                            className="text-slate-400 hover:text-rose-500 dark:text-slate-500 dark:hover:text-rose-400 p-2 -mr-2 -mt-2 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-full"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                           </button>
                         </div>
                       </div>
                       
                       <h3 className="font-medium text-slate-900 dark:text-white leading-snug mb-1">{task.title}</h3>
                       
+                      <div className="flex items-center text-xs text-slate-400 dark:text-slate-500 gap-3">
+                        <span>{task.durationMinutes} min</span>
+                        {task.repeatCount > 1 && <span>{task.repeatCount}x / sem</span>}
+                        {task.isRecurring && <span>Routine</span>}
+                      </div>
+
                       {!isExpanded && (
                         <div className="mt-2 flex items-center justify-between text-xs">
                           <div className="flex items-center text-slate-400 dark:text-slate-500">
@@ -379,6 +397,13 @@ export const TasksView: React.FC<Props> = ({ objectives, tasks, setTasks, onNext
           </div>
         </div>
       </div>
+      {taskToEdit && (
+        <EditTaskModal
+            task={taskToEdit}
+            onSave={handleSaveTask}
+            onClose={() => setTaskToEdit(null)}
+        />
+      )}
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { Category } from './types';
+import { Category, NoteCategory } from './types';
 
 export const DAYS_OF_WEEK = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 export const HOURS_OF_DAY = Array.from({ length: 16 }, (_, i) => i + 7); // 7 AM to 10 PM for simplicity in view
@@ -10,6 +10,15 @@ export const CATEGORY_COLORS: Record<Category, string> = {
   [Category.CREATION]: '#FCD34D', // Pastel Amber
   [Category.AUTRE]: '#94A3B8', // Pastel Slate
 };
+
+export const DEFAULT_NOTE_CATEGORIES: NoteCategory[] = [
+  { id: 'cours', name: 'Cours', color: '#A78BFA' },
+  { id: 'idees', name: 'Idées', color: '#FBBF24' },
+  { id: 'recherche', name: 'Recherche', color: '#34D399' },
+  { id: 'personnel', name: 'Personnel', color: '#FB7185' },
+  { id: 'projet', name: 'Projet', color: '#60A5FA' },
+  { id: 'autre', name: 'Autre', color: '#94A3B8' },
+];
 
 export const CATEGORY_EMOJIS: Record<Category, string> = {
   [Category.ETUDE]: '📚',

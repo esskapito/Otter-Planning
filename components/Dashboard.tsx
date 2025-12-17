@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Task, TaskStatus, Category, Objective, Subtask } from '../types';
+import { Task, TaskStatus, Category, Objective, Note } from '../types';
 import { CATEGORY_COLORS, CATEGORY_EMOJIS, DAYS_OF_WEEK } from '../constants';
 import { PieChart, Pie, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { BottomSheet } from './BottomSheet';
@@ -10,9 +10,11 @@ import { CelebrationAnimation } from './CelebrationAnimation';
 interface Props {
   objectives: Objective[];
   tasks: Task[];
+  notes: Note[];
   setTasks: (t: Task[]) => void;
   onResetProgress: () => void;
   onClearAll: () => void;
+  onNavigateToNote: (noteId: string) => void;
   trackEvent: (eventName: string, properties?: Record<string, any>) => void;
   showToast: (message: string, type?: 'success' | 'error') => void;
 }
@@ -30,7 +32,7 @@ const motivationalQuotes = [
     "Croyez en vous, même si personne d'autre ne le fait.",
 ];
 
-export const Dashboard: React.FC<Props> = ({ objectives, tasks, setTasks, onResetProgress, onClearAll, trackEvent, showToast }) => {
+export const Dashboard: React.FC<Props> = ({ objectives, tasks, notes, setTasks, onResetProgress, onClearAll, onNavigateToNote, trackEvent, showToast }) => {
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [activeDay, setActiveDay] = useState(getTodayIndex());
   const [mobileTab, setMobileTab] = useState<'agenda' | 'stats'>('agenda');
@@ -124,6 +126,7 @@ export const Dashboard: React.FC<Props> = ({ objectives, tasks, setTasks, onRese
     const isExpanded = expandedTaskId === t.id;
     const isSlotCompleted = t.completedSlots?.includes(slotId);
     const hour = slotId.split('-')[1];
+    const linkedNote = notes.find(n => n.linkedTaskId === t.id);
 
     return (
       <div key={slotId} className="group">
@@ -141,7 +144,14 @@ export const Dashboard: React.FC<Props> = ({ objectives, tasks, setTasks, onRese
               onClick={() => setExpandedTaskId(isExpanded ? null : t.id)}
             >
               <div className="min-w-0 pl-2">
-                <div className={`font-medium text-sm truncate ${isSlotCompleted ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'}`}>{t.title}</div>
+                <div className="flex items-center gap-2">
+                  <div className={`font-medium text-sm truncate ${isSlotCompleted ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'}`}>{t.title}</div>
+                  {linkedNote && (
+                    <button onClick={(e) => { e.stopPropagation(); onNavigateToNote(linkedNote.id); }} className="text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 flex-shrink-0" title={`Voir la note: ${linkedNote.title}`}>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    </button>
+                  )}
+                </div>
                 <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center mt-1">
                   <span className="font-mono bg-slate-200 dark:bg-slate-700 px-1 rounded mr-2 text-[10px]">{hour}h00</span>
                   <span className="font-semibold text-slate-600 dark:text-slate-300 mr-2">{taskObjective?.title}</span>
@@ -186,12 +196,21 @@ export const Dashboard: React.FC<Props> = ({ objectives, tasks, setTasks, onRese
           <span className="font-serif italic">"{quote}"</span>
         </p>
       </div>
-      <div className="bg-slate-900 dark:bg-slate-800 text-white rounded-xl p-6 sm:p-8 shadow-lg transition-colors">
-          <h2 className="text-2xl font-bold mb-6">Tableau de bord Global</h2>
+      <div className="bg-white dark:bg-slate-900 rounded-xl p-6 sm:p-8 shadow-lg border border-slate-100 dark:border-slate-800 transition-colors">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Tableau de bord Global</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-             <div className="text-center p-4 bg-white/5 rounded-lg border border-white/10 flex flex-col justify-center"><div className="text-3xl sm:text-4xl font-bold">{progress}%</div><div className="text-xs text-slate-400 mt-1 uppercase tracking-wider">Avancement</div></div>
-             <div className="text-center p-4 bg-white/5 rounded-lg border border-white/10 flex flex-col justify-center"><div className="text-3xl sm:text-4xl font-bold">{totalHours.toFixed(1)}h</div><div className="text-xs text-slate-400 mt-1 uppercase tracking-wider">Travail Effectué</div></div>
-             <div className="text-center p-4 bg-white/5 rounded-lg border border-white/10 flex flex-col justify-center"><div className="text-3xl sm:text-4xl font-bold">{totalSlots}</div><div className="text-xs text-slate-400 mt-1 uppercase tracking-wider">Sessions</div></div>
+             <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 flex flex-col justify-center">
+                <div className="text-3xl sm:text-4xl font-bold text-indigo-600 dark:text-indigo-400">{progress}%</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider">Avancement</div>
+             </div>
+             <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 flex flex-col justify-center">
+                <div className="text-3xl sm:text-4xl font-bold text-indigo-600 dark:text-indigo-400">{totalHours.toFixed(1)}h</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider">Travail Effectué</div>
+             </div>
+             <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 flex flex-col justify-center">
+                <div className="text-3xl sm:text-4xl font-bold text-indigo-600 dark:text-indigo-400">{totalSlots}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider">Sessions</div>
+             </div>
           </div>
       </div>
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">

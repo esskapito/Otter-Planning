@@ -11,8 +11,10 @@ import { TemplateView } from './components/TemplateView';
 import { Toast } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { OnboardingModal } from './components/OnboardingModal';
-import { Objective, Task, ScheduleSlot, TaskStatus, Subtask, Category } from './types';
-import { OBJECTIVE_COLORS } from './constants';
+import { NoteView } from './components/NoteView';
+import { NoteManagementModal } from './components/NoteManagementModal';
+import { Objective, Task, ScheduleSlot, TaskStatus, Subtask, Category, Note, NoteCategory } from './types';
+import { OBJECTIVE_COLORS, DEFAULT_NOTE_CATEGORIES } from './constants';
 
 // Add Silk type to the global window object to avoid TypeScript errors
 declare global {
@@ -39,14 +41,19 @@ const decodeFromHash = (encodedData: string): string | null => {
 
 const App: React.FC = () => {
   const [view, setView] = useState<'landing' | 'app'>('landing');
+  const [activeApp, setActiveApp] = useState<'plan' | 'note'>('plan');
   const [step, setStep] = useState(1);
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [schedule, setSchedule] = useState<ScheduleSlot[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [noteCategories, setNoteCategories] = useState<NoteCategory[]>(DEFAULT_NOTE_CATEGORIES);
   const [isSharedView, setIsSharedView] = useState(false);
   const [templateToImport, setTemplateToImport] = useState<null | { objective: Objective; tasks: Task[] }>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  
+  const [noteToView, setNoteToView] = useState<string | null>(null);
+  const [isNoteManagerOpen, setIsNoteManagerOpen] = useState(false);
+
   // Toast State
   const [toast, setToast] = useState<{ message: string; visible: boolean; type: 'success' | 'error' }>({
     message: '',
@@ -84,6 +91,69 @@ const App: React.FC = () => {
 
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
+  const loadLocalData = () => {
+    try {
+      const saved = localStorage.getItem('frenchPlannerData_v3');
+      if (saved) {
+        setView('app');
+        const data = JSON.parse(saved);
+
+        const planData = data.plan || {};
+        
+        if (Array.isArray(planData.objectives)) setObjectives(planData.objectives);
+        if (Array.isArray(planData.schedule)) setSchedule(planData.schedule);
+
+        if (Array.isArray(planData.tasks)) {
+           const validTasks = planData.tasks.map((t: any) => ({
+             ...t,
+             objectiveId: t.objectiveId,
+             subtasks: Array.isArray(t.subtasks) 
+                ? t.subtasks.map((st: any) => ({
+                    id: st.id, title: st.title, completedInSlots: Array.isArray(st.completedInSlots) ? st.completedInSlots : []
+                  }))
+                : [],
+             scheduledSlots: Array.isArray(t.scheduledSlots) ? t.scheduledSlots : [],
+             completedSlots: Array.isArray(t.completedSlots) ? t.completedSlots : [],
+             repeatCount: t.repeatCount || 1,
+             isRecurring: t.isRecurring ?? true,
+          })).filter((t: Task) => t.objectiveId);
+          setTasks(validTasks);
+        }
+        
+        const loadedCategories = Array.isArray(data.noteCategories) ? data.noteCategories : DEFAULT_NOTE_CATEGORIES;
+        setNoteCategories(loadedCategories);
+        
+        if (Array.isArray(data.notes)) {
+          // --- MIGRATION LOGIC ---
+          // Migrates notes from old enum-based category to new dynamic categoryId
+          const migratedNotes = data.notes.map((n: any) => {
+            if (n.category && typeof n.category === 'string' && !n.categoryId) {
+              const categoryName = n.category as string;
+              let foundCategory = loadedCategories.find((c: NoteCategory) => c.name.toLowerCase() === categoryName.toLowerCase());
+              if (!foundCategory) {
+                 foundCategory = loadedCategories.find((c: NoteCategory) => c.id === 'autre') || loadedCategories[0];
+              }
+              const { category, ...rest } = n;
+              return {
+                ...rest,
+                categoryId: foundCategory.id,
+                tags: Array.isArray(n.tags) ? n.tags : [],
+              };
+            }
+            return {
+              ...n,
+              tags: Array.isArray(n.tags) ? n.tags : [],
+              categoryId: n.categoryId || 'autre'
+            };
+          });
+          setNotes(migratedNotes);
+        }
+      }
+    } catch (error) {
+       console.error("Error loading local data", error);
+    }
+  };
+
   // Check for shared data or local data
   useEffect(() => {
     try {
@@ -94,7 +164,6 @@ const App: React.FC = () => {
         if(decodedJson) {
           const templateData = JSON.parse(decodedJson);
           if (templateData.objective && templateData.tasks) {
-              // Rehydrate tasks with full properties
               const hydratedTasks = templateData.tasks.map((t: any) => ({
                 id: '', objectiveId: '',
                 title: t.title || 'Tâche sans titre',
@@ -107,7 +176,7 @@ const App: React.FC = () => {
                 subtasks: (t.subtasks || []).map((st: any) => ({ id: '', title: st.title, completedInSlots: [] }))
               }));
               setTemplateToImport({ objective: templateData.objective, tasks: hydratedTasks });
-              setView('app'); // Go to app view, which will be intercepted to show TemplateView
+              setView('app');
               trackEvent('template_link_viewed');
           }
         }
@@ -120,77 +189,37 @@ const App: React.FC = () => {
             setObjectives(Array.isArray(sharedData.objectives) ? sharedData.objectives : []);
             setTasks(Array.isArray(sharedData.tasks) ? sharedData.tasks : []);
             setIsSharedView(true);
-            setView('app'); // Go straight to app for shared links
+            setView('app');
             trackEvent('shared_plan_viewed');
           }
         }
       } else if (hash === '#app') {
-        // Deep link to app
         setView('app');
         loadLocalData();
-      } else if (!localStorage.getItem('frenchPlannerData_v2')) {
-        // First time user, no data, not a shared link
+      } else if (!localStorage.getItem('frenchPlannerData_v3')) {
         setShowOnboarding(true);
-        setView('app'); // Set to app view but modal will cover it
+        setView('app');
       } else {
         loadLocalData();
       }
     } catch (e) {
       console.error("Failed to parse data, resetting.", e);
-      localStorage.removeItem('frenchPlannerData_v2');
-      window.location.hash = ''; // Clear corrupted hash
+      localStorage.removeItem('frenchPlannerData_v3');
+      window.location.hash = '';
     }
   }, []);
 
-  const loadLocalData = () => {
-    try {
-      const saved = localStorage.getItem('frenchPlannerData_v2');
-      if (saved) {
-        setView('app'); // User has data, go to app
-        const data = JSON.parse(saved);
-        
-        if (Array.isArray(data.objectives)) {
-          setObjectives(data.objectives);
-        } else if (data.objective) { 
-          // Legacy support
-          setObjectives([{ ...data.objective, id: 'default', color: '#3b82f6' }]); 
-        }
-        
-        if (Array.isArray(data.tasks)) {
-          const validTasks = data.tasks.map((t: any) => ({
-             ...t,
-             objectiveId: t.objectiveId || (data.objective ? 'default' : ''),
-             subtasks: Array.isArray(t.subtasks) 
-                ? t.subtasks.map((st: any) => ({
-                    id: st.id,
-                    title: st.title,
-                    completedInSlots: Array.isArray(st.completedInSlots) ? st.completedInSlots : []
-                  }))
-                : [],
-             scheduledSlots: Array.isArray(t.scheduledSlots) ? t.scheduledSlots : (t.scheduledSlotId ? [t.scheduledSlotId] : []),
-             completedSlots: Array.isArray(t.completedSlots) ? t.completedSlots : (t.status === 'Fait' && t.scheduledSlotId ? [t.scheduledSlotId] : []),
-             repeatCount: t.repeatCount || 1,
-             isRecurring: t.isRecurring ?? true,
-          })).filter((t: Task) => t.objectiveId);
-          setTasks(validTasks);
-        }
-        
-        if (Array.isArray(data.schedule)) {
-          setSchedule(data.schedule);
-        }
-      }
-    } catch (error) {
-       console.error("Error loading local data", error);
-       // Optional: Clear data if needed
-    }
-  };
-
-  // Persist data to local storage only if it's not a shared view
+  // Persist data to local storage
   useEffect(() => {
     if (!isSharedView && !templateToImport && view === 'app') {
-      localStorage.setItem('frenchPlannerData_v2', JSON.stringify({ objectives, tasks, schedule }));
+      const dataToSave = {
+        plan: { objectives, tasks, schedule },
+        notes,
+        noteCategories,
+      };
+      localStorage.setItem('frenchPlannerData_v3', JSON.stringify(dataToSave));
     }
-  }, [objectives, tasks, schedule, isSharedView, templateToImport, view]);
+  }, [objectives, tasks, schedule, notes, noteCategories, isSharedView, templateToImport, view]);
 
   const handleStartApp = () => {
     setView('app');
@@ -202,7 +231,7 @@ const App: React.FC = () => {
     if (!templateToImport) return;
     trackEvent('template_imported');
 
-    loadLocalData(); // Ensure we have the latest local data before merging
+    loadLocalData();
 
     const newObjectiveId = generateId();
     const newObjective: Objective = {
@@ -235,15 +264,20 @@ const App: React.FC = () => {
     }
   }
 
-  const hasData = () => objectives.length > 0 || tasks.length > 0;
+  const hasData = () => objectives.length > 0 || tasks.length > 0 || notes.length > 0;
 
   const handleNext = () => {
-    // Dismiss onboarding if the user proceeds from the first step
     if (step === 1 && showOnboarding) {
       setShowOnboarding(false);
       trackEvent('onboarding_skipped');
     }
     setStep(prev => Math.min(prev + 1, 5));
+  };
+  
+  const handleNavigateToNote = (noteId: string) => {
+    setActiveApp('note');
+    setNoteToView(noteId);
+    trackEvent('navigated_to_note_from_plan');
   };
 
   const handleResetProgress = () => {
@@ -264,13 +298,16 @@ const App: React.FC = () => {
   };
 
   const handleClearAll = () => {
-    if (window.confirm("⚠️ Attention : Cette action va effacer TOUTES vos données (objectifs, tâches, planning). Êtes-vous sûr de vouloir recommencer à zéro ?")) {
+    if (window.confirm("⚠️ Attention : Cette action va effacer TOUTES vos données (objectifs, tâches, planning, notes). Êtes-vous sûr de vouloir recommencer à zéro ?")) {
       trackEvent('data_cleared');
       setObjectives([]);
       setTasks([]);
       setSchedule([]);
+      setNotes([]);
+      setNoteCategories(DEFAULT_NOTE_CATEGORIES);
       setStep(1);
-      localStorage.removeItem('frenchPlannerData_v2');
+      setActiveApp('plan');
+      localStorage.removeItem('frenchPlannerData_v3');
       showToast('Données effacées.', 'error');
       setView('landing');
       window.location.hash = '';
@@ -280,7 +317,6 @@ const App: React.FC = () => {
   const handleOnboardingStart = () => {
     setShowOnboarding(false);
     trackEvent('onboarding_completed');
-    // Set a flag to not show it again
     localStorage.setItem('onboarding_complete', 'true');
   };
   
@@ -297,7 +333,7 @@ const App: React.FC = () => {
     if (showOnboarding) {
       return (
         <>
-          <Layout step={step} setStep={setStep} trackEvent={trackEvent}><div/></Layout>
+          <Layout step={step} setStep={setStep} trackEvent={trackEvent} activeApp={activeApp} setActiveApp={setActiveApp} onOpenNoteManager={() => setIsNoteManagerOpen(true)}><div/></Layout>
           <OnboardingModal onStart={handleOnboardingStart} />
         </>
       );
@@ -319,32 +355,65 @@ const App: React.FC = () => {
     }
 
     return (
-      <Layout step={step} setStep={setStep} trackEvent={trackEvent}>
-        {step === 1 && (
-          <ObjectiveView objectives={objectives} setObjectives={setObjectives} onNext={handleNext} />
-        )}
-        {step === 2 && (
-          <ConstraintsView schedule={schedule} setSchedule={setSchedule} onNext={handleNext} trackEvent={trackEvent} />
-        )}
-        {step === 3 && (
-          <TasksView objectives={objectives} tasks={tasks} setTasks={setTasks} onNext={handleNext} trackEvent={trackEvent} />
-        )}
-        {step === 4 && (
-          <PlanningView objectives={objectives} tasks={tasks} setTasks={setTasks} schedule={schedule} onNext={handleNext} trackEvent={trackEvent} />
-        )}
-        {step === 5 && (
-          <Dashboard
-            objectives={objectives}
-            tasks={tasks}
-            setTasks={setTasks}
-            onResetProgress={handleResetProgress}
-            onClearAll={handleClearAll}
-            trackEvent={trackEvent}
-            showToast={showToast}
-          />
-        )}
-        <Toast message={toast.message} isVisible={toast.visible} onClose={hideToast} type={toast.type} />
-      </Layout>
+      <>
+        <Layout step={step} setStep={setStep} trackEvent={trackEvent} activeApp={activeApp} setActiveApp={setActiveApp} onOpenNoteManager={() => setIsNoteManagerOpen(true)}>
+          {activeApp === 'plan' ? (
+            <>
+              {step === 1 && (
+                <ObjectiveView objectives={objectives} setObjectives={setObjectives} onNext={handleNext} />
+              )}
+              {step === 2 && (
+                <ConstraintsView schedule={schedule} setSchedule={setSchedule} onNext={handleNext} trackEvent={trackEvent} />
+              )}
+              {step === 3 && (
+                <TasksView
+                  objectives={objectives}
+                  tasks={tasks}
+                  setTasks={setTasks}
+                  onNext={handleNext}
+                  trackEvent={trackEvent}
+                  showToast={showToast}
+                />
+              )}
+              {step === 4 && (
+                <PlanningView objectives={objectives} tasks={tasks} setTasks={setTasks} schedule={schedule} onNext={handleNext} trackEvent={trackEvent} />
+              )}
+              {step === 5 && (
+                <Dashboard
+                  objectives={objectives}
+                  tasks={tasks}
+                  notes={notes}
+                  setTasks={setTasks}
+                  onResetProgress={handleResetProgress}
+                  onClearAll={handleClearAll}
+                  onNavigateToNote={handleNavigateToNote}
+                  trackEvent={trackEvent}
+                  showToast={showToast}
+                />
+              )}
+            </>
+          ) : (
+            <NoteView
+              notes={notes}
+              setNotes={setNotes}
+              tasks={tasks}
+              objectives={objectives}
+              noteCategories={noteCategories}
+              initialNoteId={noteToView}
+              onNoteViewed={() => setNoteToView(null)}
+            />
+          )}
+          <Toast message={toast.message} isVisible={toast.visible} onClose={hideToast} type={toast.type} />
+        </Layout>
+        <NoteManagementModal
+          isOpen={isNoteManagerOpen}
+          onClose={() => setIsNoteManagerOpen(false)}
+          notes={notes}
+          setNotes={setNotes}
+          categories={noteCategories}
+          setCategories={setNoteCategories}
+        />
+      </>
     );
   };
 
