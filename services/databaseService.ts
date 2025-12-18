@@ -2,13 +2,14 @@ import { User, Objective, Task, ScheduleSlot, Note, NoteCategory } from '../type
 import { DEFAULT_NOTE_CATEGORIES } from '../constants';
 
 /**
- * 🐇 RABBIT CLOUD DATABASE v2.1
- * Using KVDB.io with enhanced error handling for school environments.
+ * 🐇 RABBIT CLOUD SYNC v4.0
+ * Utilise Pantry Cloud pour une synchronisation JSON transparente.
+ * Pas de gestion de fichiers pour les élèves : ça "juste marche".
  */
 
-// A fresh, unique bucket ID for your project
-const BUCKET_ID = 'rabbit_prod_v2_f29k3l'; 
-const BASE_URL = `https://kvdb.io/${BUCKET_ID}`;
+// ID de projet unique pour le projet "French Learners"
+const PANTRY_ID = '70265293-707b-402b-a010-488665057022';
+const BASE_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}`;
 
 interface UserRecord {
   id: string;
@@ -32,13 +33,19 @@ interface RegistrySchema {
   users: UserRecord[];
 }
 
+// Utilitaire pour transformer un email en ID de basket valide (Pantry n'aime pas les @)
+const getBasketId = (email: string) => `rabbit_user_${btoa(email.toLowerCase()).replace(/=/g, '')}`;
+
 export const databaseService = {
-  // Enhanced request helper with better error/404 handling
-  async _request(key: string, method: 'GET' | 'PUT' = 'GET', body?: any) {
-    const url = `${BASE_URL}/${key}`;
+  
+  async _request(basketName: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET', body?: any) {
+    const url = basketName === 'registry' 
+      ? `${BASE_URL}/basket/user_registry` 
+      : `${BASE_URL}/basket/${basketName}`;
+    
     try {
       const options: RequestInit = {
-        method,
+        method: method === 'PUT' ? 'POST' : method, // Pantry utilise POST pour l'update
         headers: { 'Content-Type': 'application/json' },
         mode: 'cors'
       };
@@ -46,36 +53,19 @@ export const databaseService = {
 
       const response = await fetch(url, options);
       
-      // Handle 404 as "Empty/Not Found" rather than an exception
-      if (response.status === 404) {
-        return null;
-      }
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+      if (response.status === 404 && method === 'GET') return null;
+      if (!response.ok) throw new Error(`Pantry Error: ${response.status}`);
       
-      return method === 'GET' ? await response.json() : true;
+      return method === 'DELETE' ? true : await response.json();
     } catch (e) {
-      // For background saves (PUT), we log but don't throw to avoid interrupting the user
-      if (method === 'PUT') {
-        console.warn(`Sync failed for ${key}:`, e);
-        return false;
-      }
-      // For GET (critical loads), we log more details
-      console.error(`Load failed for ${key}:`, e);
+      console.error("Database error:", e);
       throw e;
     }
   },
 
   async _getRegistry(): Promise<RegistrySchema> {
-    try {
-      const data = await this._request('registry');
-      return data || { users: [] };
-    } catch (e) {
-      // If registry itself is unreachable, return empty instead of crashing
-      return { users: [] };
-    }
+    const data = await this._request('registry');
+    return data || { users: [] };
   },
 
   async signup(email: string, name: string, password: string, avatarColor: string): Promise<User> {
@@ -94,17 +84,17 @@ export const databaseService = {
       avatarColor
     };
 
-    // Initialize their data slot immediately
     const initialData: UserDataPackage = {
       plan: { objectives: [], tasks: [], schedule: [] },
       notes: [],
       noteCategories: DEFAULT_NOTE_CATEGORIES
     };
     
-    await this._request(`data_${newUser.id}`, 'PUT', initialData);
-
-    registry.users.push(newUser);
-    await this._request('registry', 'PUT', registry);
+    // 1. Créer le panier de l'utilisateur
+    await this._request(getBasketId(cleanEmail), 'POST', initialData);
+    
+    // 2. Mettre à jour le registre
+    await this._request('registry', 'POST', { users: [...registry.users, newUser] });
 
     return { id: newUser.id, email: newUser.email, name: newUser.name, avatarColor: newUser.avatarColor };
   },
@@ -113,12 +103,11 @@ export const databaseService = {
     const registry = await this._getRegistry();
     const cleanEmail = email.toLowerCase().trim();
     
-    // Find user record. Note: during auto-login password might be empty.
-    const userRecord = registry.users.find(u => 
-        u.email === cleanEmail && (password === '' || u.password === password)
-    );
+    const userRecord = registry.users.find(u => u.email === cleanEmail);
     
-    if (!userRecord) throw new Error("Email ou mot de passe incorrect.");
+    if (!userRecord || (password !== '' && userRecord.password !== password)) {
+      throw new Error("Email ou mot de passe incorrect.");
+    }
 
     const user: User = { 
       id: userRecord.id, 
@@ -127,8 +116,8 @@ export const databaseService = {
       avatarColor: userRecord.avatarColor 
     };
 
-    // Fetch the data. If 404 (null), use default state (Self-Healing)
-    const remoteData = await this._request(`data_${user.id}`);
+    // Charger les données depuis son panier Pantry
+    const remoteData = await this._request(getBasketId(cleanEmail));
     const data: UserDataPackage = remoteData || { 
       plan: { objectives: [], tasks: [], schedule: [] }, 
       notes: [], 
@@ -138,8 +127,12 @@ export const databaseService = {
     return { user, data };
   },
 
-  async saveUserData(userId: string, data: UserDataPackage) {
-    // Background task: no 'await' in caller to keep UI snappy
-    this._request(`data_${userId}`, 'PUT', data);
+  async saveUserData(email: string, data: UserDataPackage) {
+    // Sauvegarde silencieuse en arrière-plan
+    try {
+        await this._request(getBasketId(email), 'POST', data);
+    } catch (e) {
+        console.warn("Échec de synchronisation temporaire...");
+    }
   }
 };

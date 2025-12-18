@@ -15,24 +15,13 @@ import { NoteView } from './components/NoteView';
 import { NoteManagementModal } from './components/NoteManagementModal';
 import { AuthModal } from './components/AuthModal';
 import { AccountSettingsModal } from './components/AccountSettingsModal';
-import { Objective, Task, ScheduleSlot, TaskStatus, Subtask, Category, Note, NoteCategory, User } from './types';
-import { OBJECTIVE_COLORS, DEFAULT_NOTE_CATEGORIES } from './constants';
+import { Objective, Task, ScheduleSlot, Note, NoteCategory, User } from './types';
+import { DEFAULT_NOTE_CATEGORIES } from './constants';
 import { databaseService } from './services/databaseService';
 
-// Local fallbacks
 const GUEST_STORAGE_KEY = 'rabbit_local_guest_data';
 const AUTH_SESSION_KEY = 'rabbit_active_session';
 
-const decodeFromHash = (encodedData: string): string | null => {
-  try {
-    return decodeURIComponent(escape(atob(encodedData)));
-  } catch (e) {
-    console.error("Hash decoding failed.", e);
-    return null;
-  }
-};
-
-// FIX: Removed React.FC typing to avoid potential issues with children props and explicit function signatures in strict environments
 const App = () => {
   const [view, setView] = useState<'landing' | 'app'>('landing');
   const [activeApp, setActiveApp] = useState<'plan' | 'note'>('plan');
@@ -42,7 +31,6 @@ const App = () => {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   
-  // Data State
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [schedule, setSchedule] = useState<ScheduleSlot[]>([]);
@@ -55,7 +43,6 @@ const App = () => {
   const [noteToView, setNoteToView] = useState<string | null>(null);
   const [isNoteManagerOpen, setIsNoteManagerOpen] = useState(false);
 
-  // Toast State
   const [toast, setToast] = useState<{ message: string; visible: boolean; type: 'success' | 'error' }>({
     message: '',
     visible: false,
@@ -70,17 +57,6 @@ const App = () => {
     setToast(prev => ({ ...prev, visible: false }));
   };
 
-  const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
-
-  const resetLocalState = () => {
-    setObjectives([]);
-    setTasks([]);
-    setSchedule([]);
-    setNotes([]);
-    setNoteCategories(DEFAULT_NOTE_CATEGORIES);
-    setStep(1);
-  };
-
   const hydrateStateFromData = (data: any) => {
     if (!data) return;
     const planData = data.plan || {};
@@ -91,11 +67,7 @@ const App = () => {
        const validTasks = planData.tasks.map((t: any) => ({
          ...t,
          objectiveId: t.objectiveId,
-         subtasks: Array.isArray(t.subtasks) 
-            ? t.subtasks.map((st: any) => ({
-                id: st.id, title: st.title, completedInSlots: Array.isArray(st.completedInSlots) ? st.completedInSlots : []
-              }))
-            : [],
+         subtasks: Array.isArray(t.subtasks) ? t.subtasks : [],
          scheduledSlots: Array.isArray(t.scheduledSlots) ? t.scheduledSlots : [],
          completedSlots: Array.isArray(t.completedSlots) ? t.completedSlots : [],
          repeatCount: t.repeatCount || 1,
@@ -108,50 +80,29 @@ const App = () => {
     setNotes(Array.isArray(data.notes) ? data.notes : []);
   };
 
-  const loadLocalGuestData = () => {
-    const saved = localStorage.getItem(GUEST_STORAGE_KEY);
-    if (saved) {
-        hydrateStateFromData(JSON.parse(saved));
-    } else {
-        resetLocalState();
-    }
-  }
-
-  // Initial Load & Auth Sync
   useEffect(() => {
     const savedSession = localStorage.getItem(AUTH_SESSION_KEY);
     if (savedSession) {
       try {
         const user = JSON.parse(savedSession);
         setCurrentUser(user);
-        // Retreive specific partition from the JSON DB
         databaseService.login(user.email, '').then(({ data }) => {
             hydrateStateFromData(data);
         }).catch(() => {
-            loadLocalGuestData();
+            const local = localStorage.getItem(GUEST_STORAGE_KEY);
+            if (local) hydrateStateFromData(JSON.parse(local));
         });
       } catch (e) {
         localStorage.removeItem(AUTH_SESSION_KEY);
-        loadLocalGuestData();
       }
-    } else {
-        loadLocalGuestData();
     }
 
-    const hash = window.location.hash;
-    if (hash.startsWith('#template=')) {
-        setView('app');
-    } else if (hash.startsWith('#shared=')) {
-        setView('app');
-    } else if (hash === '#app') {
-      setView('app');
-    } else if (!localStorage.getItem('onboarding_complete') && !savedSession) {
+    if (!localStorage.getItem('onboarding_complete') && !savedSession) {
       setShowOnboarding(true);
       setView('app');
     }
   }, []);
 
-  // background Commits to JSON Database
   useEffect(() => {
     if (!isSharedView && !templateToImport && view === 'app') {
       setIsSyncing(true);
@@ -162,14 +113,12 @@ const App = () => {
       };
 
       if (currentUser) {
-          // Commit to the central JSON Database
-          databaseService.saveUserData(currentUser.id, dataToSave);
+          databaseService.saveUserData(currentUser.email, dataToSave);
       } else {
-          // Mode invité: local only
           localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(dataToSave));
       }
       
-      const timer = setTimeout(() => setIsSyncing(false), 600);
+      const timer = setTimeout(() => setIsSyncing(false), 800);
       return () => clearTimeout(timer);
     }
   }, [objectives, tasks, schedule, notes, noteCategories, isSharedView, templateToImport, view, currentUser]);
@@ -180,14 +129,17 @@ const App = () => {
     if (data) {
         hydrateStateFromData(data);
     }
-    showToast(`Base de données chargée pour ${user.name} !`, 'success');
+    showToast(`Bon retour, ${user.name} ! Ton planning est à jour.`, 'success');
   };
 
   const handleLogout = () => {
-    if (window.confirm("Se déconnecter ? Ton travail est sauvegardé dans la base JSON.")) {
+    if (window.confirm("Se déconnecter ? Ton travail restera sauvegardé sur le Cloud.")) {
       setCurrentUser(null);
       localStorage.removeItem(AUTH_SESSION_KEY);
-      loadLocalGuestData();
+      setObjectives([]);
+      setTasks([]);
+      setSchedule([]);
+      setNotes([]);
       showToast("Déconnecté.", 'success');
     }
   };
@@ -252,7 +204,6 @@ const App = () => {
     );
   };
 
-  // FIX: Properly passing children to ErrorBoundary as renderApp() result
   return <ErrorBoundary>{renderApp()}</ErrorBoundary>;
 };
 

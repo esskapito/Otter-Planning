@@ -1,4 +1,4 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface ErrorBoundaryProps {
   children?: ReactNode;
@@ -8,13 +8,19 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// FIX: Explicitly extending React.Component and providing a constructor to ensure that 'props' and 'state' are correctly recognized by the TypeScript compiler.
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+/**
+ * ErrorBoundary component that catches JavaScript errors anywhere in their child component tree,
+ * logs those errors, and displays a fallback UI instead of the component tree that crashed.
+ */
+// FIX: Explicitly extending 'Component' with defined generic types for props and state to ensure members like this.state and this.props are correctly identified.
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // FIX: Declaring state as a public property ensures it is recognized by the TypeScript compiler as part of the class instance.
+  public state: ErrorBoundaryState = {
+    hasError: false,
+  };
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = {
-      hasError: false,
-    };
   }
 
   static getDerivedStateFromError(_: Error): ErrorBoundaryState {
@@ -22,13 +28,13 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
     // You could also log the error to an error reporting service here
   }
 
-  render() {
-    // FIX: Using this.state and this.props which are now properly inherited from React.Component
+  public render() {
+    // FIX: 'this.state' is now properly recognized on the ErrorBoundary instance.
     if (this.state.hasError) {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950 p-4">
@@ -48,6 +54,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       );
     }
 
+    // FIX: 'this.props' is now properly recognized as inherited from the Component base class.
     return this.props.children;
   }
 }
