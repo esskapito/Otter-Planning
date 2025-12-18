@@ -8,7 +8,7 @@ import { DEFAULT_NOTE_CATEGORIES } from '../constants';
  */
 
 // ID de projet unique pour le projet "French Learners"
-const PANTRY_ID = '70265293-707b-402b-a010-488665057022';
+const PANTRY_ID = ' 930eb82d-6931-47d4-8647-03e13ccc0bfe';
 const BASE_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}`;
 
 interface UserRecord {
