@@ -2,12 +2,13 @@ import { User, Objective, Task, ScheduleSlot, Note, NoteCategory } from '../type
 import { DEFAULT_NOTE_CATEGORIES } from '../constants';
 
 /**
- * 🐇 RABBIT CLOUD SYNC v4.1 - ÉDITION FIABLE
- * Système de stockage JSON ultra-simplifié pour les écoles.
- * Chaque utilisateur a son propre "panier" (basket) indépendant.
+ * 🐇 RABBIT CLOUD SYNC v4.2 - ÉDITION ÉCOLE
+ * Chaque élève a son propre casier JSON privé.
+ * Pas de fichier central = pas de bugs de collision.
  */
 
-const PANTRY_ID = '930eb82d-6931-47d4-8647-03e13ccc0bfe';
+// Nouvel ID propre, garanti sans espaces
+const PANTRY_ID = '4a8a5b2e-0672-4632-8494-6338b809825b';
 const BASE_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}`;
 
 interface UserDataPackage {
@@ -21,11 +22,11 @@ interface UserDataPackage {
   noteCategories: NoteCategory[];
 }
 
-// Utilitaire pour transformer un email en ID de fichier cloud 100% sûr
+// Génère un ID unique et sûr à partir de l'email
 const getSafeBasketId = (email: string) => {
   const cleanEmail = email.toLowerCase().trim();
-  // Encodage Base64 nettoyé des caractères problématiques pour les URLs
-  return `rb_${btoa(cleanEmail).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')}`;
+  // On utilise btoa pour l'email, mais on nettoie les caractères que Pantry n'aime pas
+  return `rabbit_user_${btoa(cleanEmail).replace(/[^a-zA-Z0-9]/g, 'x')}`;
 };
 
 export const databaseService = {
@@ -36,11 +37,13 @@ export const databaseService = {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
+      
       if (response.status === 404 || response.status === 400) return null;
-      if (!response.ok) throw new Error(`Fetch Error: ${response.status}`);
+      if (!response.ok) throw new Error(`Status ${response.status}`);
+      
       return await response.json();
     } catch (e) {
-      console.error("Cloud Get Error:", e);
+      console.warn("Erreur de lecture Cloud (normal si nouveau compte) :", e);
       return null;
     }
   },
@@ -48,13 +51,13 @@ export const databaseService = {
   async _saveBasket(basketId: string, data: UserDataPackage): Promise<boolean> {
     try {
       const response = await fetch(`${BASE_URL}/basket/${basketId}`, {
-        method: 'POST', // POST sur Pantry crée ou remplace complètement le contenu
+        method: 'POST', 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
       return response.ok;
     } catch (e) {
-      console.error("Cloud Save Error:", e);
+      console.error("Erreur de sauvegarde Cloud :", e);
       return false;
     }
   },
@@ -64,13 +67,13 @@ export const databaseService = {
     const existing = await this._getBasket(basketId);
     
     if (existing) {
-      throw new Error("Ce compte existe déjà. Essaie de te connecter !");
+      throw new Error("Ce compte existe déjà sur le cloud. Connecte-toi !");
     }
 
     const newUser: User = {
       id: Math.random().toString(36).substr(2, 9),
       email: email.toLowerCase().trim(),
-      name,
+      name: name.trim(),
       avatarColor
     };
 
@@ -82,7 +85,7 @@ export const databaseService = {
     };
     
     const success = await this._saveBasket(basketId, initialData);
-    if (!success) throw new Error("Impossible de créer le compte sur le Cloud. Vérifie ta connexion.");
+    if (!success) throw new Error("Erreur de création sur le Cloud. Vérifie ta connexion.");
 
     return newUser;
   },
@@ -92,11 +95,11 @@ export const databaseService = {
     const cloudData = await this._getBasket(basketId);
     
     if (!cloudData) {
-      throw new Error("Compte non trouvé. Vérifie l'email ou crée un compte.");
+      throw new Error("Compte inconnu. Crée un compte pour synchroniser tes appareils.");
     }
 
-    // Si on demande un mot de passe (pas vide) et qu'il ne correspond pas
-    if (password && cloudData.profile.password !== password) {
+    // Le mot de passe est facultatif pour les tests, mais on vérifie s'il existe
+    if (password && cloudData.profile.password && cloudData.profile.password !== password) {
       throw new Error("Mot de passe incorrect.");
     }
 
@@ -113,7 +116,8 @@ export const databaseService = {
 
   async saveUserData(email: string, data: any) {
     const basketId = getSafeBasketId(email);
-    // On récupère le profil actuel pour ne pas écraser le mot de passe
+    
+    // On récupère d'abord le profil pour ne pas perdre le mdp
     const current = await this._getBasket(basketId);
     if (!current) return;
 
@@ -122,7 +126,6 @@ export const databaseService = {
       ...data
     };
 
-    // Sauvegarde asynchrone
     this._saveBasket(basketId, fullPackage);
   }
 };
