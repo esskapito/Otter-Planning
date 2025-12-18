@@ -168,12 +168,12 @@ export const NoteView: React.FC<Props> = ({ notes, setNotes, tasks, objectives, 
   );
 
   return (
-    <div className="flex-1 flex md:gap-4">
+    <div className="flex-1 h-full flex md:gap-4 overflow-hidden">
       <div className={`w-full md:w-1/3 md:min-w-[280px] h-full ${openNoteIds.length > 0 && isMobile ? 'hidden' : 'block'}`}>
         {renderNoteList()}
       </div>
 
-      <div className={`relative flex-1 ${openNoteIds.length === 0 ? 'hidden md:block' : 'block'}`}>
+      <div className={`relative flex-1 h-full ${openNoteIds.length === 0 ? 'hidden md:block' : 'block'}`}>
         {openNoteIds.length === 0 && !isMobile && (
           <div className="h-full hidden md:flex flex-col items-center justify-center text-center text-slate-400 dark:text-slate-500 bg-slate-50/50 dark:bg-slate-900/20 rounded-xl">
             <svg className="w-12 h-12 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -194,6 +194,7 @@ export const NoteView: React.FC<Props> = ({ notes, setNotes, tasks, objectives, 
               opacity: isActive ? 1 : 1 - Math.min(stackIndex, 3) * 0.2,
               zIndex: 10 + index,
               pointerEvents: isActive ? 'auto' : 'none',
+              height: '100%'
           };
 
           return (
