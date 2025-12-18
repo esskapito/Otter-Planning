@@ -2,24 +2,16 @@ import { User, Objective, Task, ScheduleSlot, Note, NoteCategory } from '../type
 import { DEFAULT_NOTE_CATEGORIES } from '../constants';
 
 /**
- * 🐇 RABBIT CLOUD SYNC v4.0
- * Utilise Pantry Cloud pour une synchronisation JSON transparente.
- * Pas de gestion de fichiers pour les élèves : ça "juste marche".
+ * 🐇 RABBIT CLOUD SYNC v4.1 - ÉDITION FIABLE
+ * Système de stockage JSON ultra-simplifié pour les écoles.
+ * Chaque utilisateur a son propre "panier" (basket) indépendant.
  */
 
-// ID de projet unique pour le projet "French Learners"
-const PANTRY_ID = ' 930eb82d-6931-47d4-8647-03e13ccc0bfe';
+const PANTRY_ID = '930eb82d-6931-47d4-8647-03e13ccc0bfe';
 const BASE_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}`;
 
-interface UserRecord {
-  id: string;
-  email: string;
-  password?: string;
-  name: string;
-  avatarColor: string;
-}
-
 interface UserDataPackage {
+  profile: User & { password?: string };
   plan: {
     objectives: Objective[];
     tasks: Task[];
@@ -29,110 +21,108 @@ interface UserDataPackage {
   noteCategories: NoteCategory[];
 }
 
-interface RegistrySchema {
-  users: UserRecord[];
-}
-
-// Utilitaire pour transformer un email en ID de basket valide (Pantry n'aime pas les @)
-const getBasketId = (email: string) => `rabbit_user_${btoa(email.toLowerCase()).replace(/=/g, '')}`;
+// Utilitaire pour transformer un email en ID de fichier cloud 100% sûr
+const getSafeBasketId = (email: string) => {
+  const cleanEmail = email.toLowerCase().trim();
+  // Encodage Base64 nettoyé des caractères problématiques pour les URLs
+  return `rb_${btoa(cleanEmail).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')}`;
+};
 
 export const databaseService = {
   
-  async _request(basketName: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET', body?: any) {
-    const url = basketName === 'registry' 
-      ? `${BASE_URL}/basket/user_registry` 
-      : `${BASE_URL}/basket/${basketName}`;
-    
+  async _getBasket(basketId: string): Promise<UserDataPackage | null> {
     try {
-      const options: RequestInit = {
-        method: method === 'PUT' ? 'POST' : method, // Pantry utilise POST pour l'update
-        headers: { 'Content-Type': 'application/json' },
-        mode: 'cors'
-      };
-      if (body) options.body = JSON.stringify(body);
-
-      const response = await fetch(url, options);
-      
-      if (response.status === 404 && method === 'GET') return null;
-      if (!response.ok) throw new Error(`Pantry Error: ${response.status}`);
-      
-      return method === 'DELETE' ? true : await response.json();
+      const response = await fetch(`${BASE_URL}/basket/${basketId}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (response.status === 404 || response.status === 400) return null;
+      if (!response.ok) throw new Error(`Fetch Error: ${response.status}`);
+      return await response.json();
     } catch (e) {
-      console.error("Database error:", e);
-      throw e;
+      console.error("Cloud Get Error:", e);
+      return null;
     }
   },
 
-  async _getRegistry(): Promise<RegistrySchema> {
-    const data = await this._request('registry');
-    return data || { users: [] };
+  async _saveBasket(basketId: string, data: UserDataPackage): Promise<boolean> {
+    try {
+      const response = await fetch(`${BASE_URL}/basket/${basketId}`, {
+        method: 'POST', // POST sur Pantry crée ou remplace complètement le contenu
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      return response.ok;
+    } catch (e) {
+      console.error("Cloud Save Error:", e);
+      return false;
+    }
   },
 
   async signup(email: string, name: string, password: string, avatarColor: string): Promise<User> {
-    const registry = await this._getRegistry();
-    const cleanEmail = email.toLowerCase().trim();
+    const basketId = getSafeBasketId(email);
+    const existing = await this._getBasket(basketId);
     
-    if (registry.users.find(u => u.email === cleanEmail)) {
-      throw new Error("Cet email est déjà utilisé.");
+    if (existing) {
+      throw new Error("Ce compte existe déjà. Essaie de te connecter !");
     }
 
-    const newUser: UserRecord = {
+    const newUser: User = {
       id: Math.random().toString(36).substr(2, 9),
-      email: cleanEmail,
+      email: email.toLowerCase().trim(),
       name,
-      password,
       avatarColor
     };
 
     const initialData: UserDataPackage = {
+      profile: { ...newUser, password },
       plan: { objectives: [], tasks: [], schedule: [] },
       notes: [],
       noteCategories: DEFAULT_NOTE_CATEGORIES
     };
     
-    // 1. Créer le panier de l'utilisateur
-    await this._request(getBasketId(cleanEmail), 'POST', initialData);
-    
-    // 2. Mettre à jour le registre
-    await this._request('registry', 'POST', { users: [...registry.users, newUser] });
+    const success = await this._saveBasket(basketId, initialData);
+    if (!success) throw new Error("Impossible de créer le compte sur le Cloud. Vérifie ta connexion.");
 
-    return { id: newUser.id, email: newUser.email, name: newUser.name, avatarColor: newUser.avatarColor };
+    return newUser;
   },
 
-  async login(email: string, password: string): Promise<{ user: User; data: UserDataPackage }> {
-    const registry = await this._getRegistry();
-    const cleanEmail = email.toLowerCase().trim();
+  async login(email: string, password: string): Promise<{ user: User; data: any }> {
+    const basketId = getSafeBasketId(email);
+    const cloudData = await this._getBasket(basketId);
     
-    const userRecord = registry.users.find(u => u.email === cleanEmail);
-    
-    if (!userRecord || (password !== '' && userRecord.password !== password)) {
-      throw new Error("Email ou mot de passe incorrect.");
+    if (!cloudData) {
+      throw new Error("Compte non trouvé. Vérifie l'email ou crée un compte.");
     }
 
+    // Si on demande un mot de passe (pas vide) et qu'il ne correspond pas
+    if (password && cloudData.profile.password !== password) {
+      throw new Error("Mot de passe incorrect.");
+    }
+
+    const { profile, ...rest } = cloudData;
     const user: User = { 
-      id: userRecord.id, 
-      email: userRecord.email, 
-      name: userRecord.name, 
-      avatarColor: userRecord.avatarColor 
+      id: profile.id, 
+      email: profile.email, 
+      name: profile.name, 
+      avatarColor: profile.avatarColor 
     };
 
-    // Charger les données depuis son panier Pantry
-    const remoteData = await this._request(getBasketId(cleanEmail));
-    const data: UserDataPackage = remoteData || { 
-      plan: { objectives: [], tasks: [], schedule: [] }, 
-      notes: [], 
-      noteCategories: DEFAULT_NOTE_CATEGORIES 
-    };
-
-    return { user, data };
+    return { user, data: rest };
   },
 
-  async saveUserData(email: string, data: UserDataPackage) {
-    // Sauvegarde silencieuse en arrière-plan
-    try {
-        await this._request(getBasketId(email), 'POST', data);
-    } catch (e) {
-        console.warn("Échec de synchronisation temporaire...");
-    }
+  async saveUserData(email: string, data: any) {
+    const basketId = getSafeBasketId(email);
+    // On récupère le profil actuel pour ne pas écraser le mot de passe
+    const current = await this._getBasket(basketId);
+    if (!current) return;
+
+    const fullPackage: UserDataPackage = {
+      profile: current.profile,
+      ...data
+    };
+
+    // Sauvegarde asynchrone
+    this._saveBasket(basketId, fullPackage);
   }
 };
