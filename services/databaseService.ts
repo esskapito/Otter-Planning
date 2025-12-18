@@ -2,13 +2,12 @@ import { User, Objective, Task, ScheduleSlot, Note, NoteCategory } from '../type
 import { DEFAULT_NOTE_CATEGORIES } from '../constants';
 
 /**
- * 🐇 RABBIT CLOUD SYNC v4.3 - ÉDITION FIABLE
- * Système de stockage décentralisé par élève.
- * Optimisé pour éviter les erreurs 400 (Bad Request).
+ * 🐇 RABBIT CLOUD SYNC v4.4 - ÉDITION DE SURVIE
+ * Correction des erreurs 400 par simplification extrême des identifiants.
  */
 
-// Nouvel ID Pantry frais pour éviter tout conflit ou blocage
-const PANTRY_ID = 'bb7e399a-05e1-4545-9279-f6236357d605';
+// Nouvel ID Pantry fraîchement généré
+const PANTRY_ID = '930eb82d-6931-47d4-8647-03e13ccc0bfe';
 const BASE_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}`;
 
 interface UserDataPackage {
@@ -22,11 +21,11 @@ interface UserDataPackage {
   noteCategories: NoteCategory[];
 }
 
-// Nettoie l'email pour créer un identifiant de fichier 100% sûr pour l'API
+// Génère un ID court et sûr (uniquement lettres et chiffres)
 const getSafeBasketId = (email: string) => {
   const clean = email.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-  // On limite la longueur et on s'assure que c'est uniquement alphanumérique
-  return `user${clean.substring(0, 50)}`;
+  // On prend un préfixe et les 20 premiers caractères pour un ID compact
+  return `rb${clean.substring(0, 20)}`;
 };
 
 export const databaseService = {
@@ -38,11 +37,13 @@ export const databaseService = {
         headers: { 'Content-Type': 'application/json' }
       });
       
-      if (response.status === 404 || response.status === 400) return null;
-      if (!response.ok) return null;
+      if (response.status === 404) return null;
+      if (!response.ok) {
+        console.error(`Pantry GET error: ${response.status}`);
+        return null;
+      }
       
-      const data = await response.json();
-      return data;
+      return await response.json();
     } catch (e) {
       return null;
     }
@@ -50,17 +51,20 @@ export const databaseService = {
 
   async _saveBasket(basketId: string, data: UserDataPackage): Promise<boolean> {
     try {
-      // On nettoie les données pour éviter d'envoyer des "undefined" que l'API rejette parfois
-      const cleanData = JSON.parse(JSON.stringify(data));
-      
       const response = await fetch(`${BASE_URL}/basket/${basketId}`, {
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cleanData)
+        body: JSON.stringify(data)
       });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error(`Pantry POST error ${response.status}: ${errText}`);
+      }
+      
       return response.ok;
     } catch (e) {
-      console.error("Erreur de synchronisation Cloud :", e);
+      console.error("Erreur réseau Cloud :", e);
       return false;
     }
   },
@@ -68,10 +72,10 @@ export const databaseService = {
   async signup(email: string, name: string, password: string, avatarColor: string): Promise<User> {
     const basketId = getSafeBasketId(email);
     
-    // Vérification existence
+    // On tente de voir si le panier existe déjà
     const existing = await this._getBasket(basketId);
     if (existing && existing.profile && existing.profile.email === email.toLowerCase().trim()) {
-      throw new Error("Ce compte existe déjà. Connecte-toi !");
+      throw new Error("Ce compte semble déjà exister.");
     }
 
     const newUser: User = {
@@ -89,7 +93,9 @@ export const databaseService = {
     };
     
     const success = await this._saveBasket(basketId, initialData);
-    if (!success) throw new Error("Le serveur de sauvegarde est temporairement indisponible. Réessaie dans quelques instants.");
+    if (!success) {
+      throw new Error("Échec de création du compte sur le Cloud (Erreur 400/500). Vérifie ta connexion.");
+    }
 
     return newUser;
   },
@@ -99,10 +105,9 @@ export const databaseService = {
     const cloudData = await this._getBasket(basketId);
     
     if (!cloudData || !cloudData.profile) {
-      throw new Error("Compte introuvable. Vérifie ton email ou crée un compte.");
+      throw new Error("Compte introuvable ou erreur de synchronisation.");
     }
 
-    // Vérification du mot de passe si présent
     if (password && cloudData.profile.password && cloudData.profile.password !== password) {
       throw new Error("Mot de passe incorrect.");
     }
@@ -135,7 +140,7 @@ export const databaseService = {
 
       await this._saveBasket(basketId, fullPackage);
     } catch (e) {
-      // Échec silencieux pour ne pas bloquer l'utilisateur
+      // Échec silencieux
     }
   }
 };
