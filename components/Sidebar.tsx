@@ -29,7 +29,7 @@ export const Sidebar: React.FC<Props> = ({ isOpen, onClose, children }) => {
   if (!isRendered) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex justify-start lg:hidden">
+    <div className="fixed inset-0 z-[60] flex justify-start">
       {/* Backdrop */}
       <div 
         className={`absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}
