@@ -92,7 +92,7 @@ export const PlanningView: React.FC<Props> = ({ objectives, tasks, setTasks, sch
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] relative">
+    <div className="flex flex-col flex-1 min-h-0 relative">
       <div className={`
         mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 transition-colors flex-shrink-0
         ${selectedTaskId ? 'hidden lg:flex' : 'flex'}
@@ -106,17 +106,17 @@ export const PlanningView: React.FC<Props> = ({ objectives, tasks, setTasks, sch
         </button>
       </div>
 
-      <div className="flex flex-col lg:flex-row flex-1 gap-4 overflow-hidden relative">
+      <div className="flex flex-col lg:flex-row flex-1 gap-4 overflow-hidden relative min-h-0">
         {/* Unscheduled Tasks Bar */}
         <div className={`
           lg:w-1/4 lg:min-w-[280px] flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex-shrink-0 lg:h-full lg:max-h-none transition-all duration-300
-          ${selectedTaskId ? 'hidden lg:flex' : 'flex max-h-[220px]'}
+          ${selectedTaskId ? 'hidden lg:flex' : 'flex max-h-[220px] lg:max-h-none'}
         `}>
           <div className="p-3 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-300 text-sm flex justify-between items-center">
             <span>À placer</span>
             <span className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded text-xs">{unscheduledTasks.length}</span>
           </div>
-          <div className="flex-1 overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto p-3 flex lg:flex-col gap-4 custom-scrollbar">
+          <div className="flex-1 overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto p-3 flex lg:flex-col gap-4 custom-scrollbar min-h-0">
             
             {objectives.map(obj => {
                const objTasks = unscheduledTasks.filter(t => t.objectiveId === obj.id);
@@ -179,7 +179,7 @@ export const PlanningView: React.FC<Props> = ({ objectives, tasks, setTasks, sch
         </div>
 
         {/* Calendar Grid Container */}
-        <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-auto relative transition-colors flex flex-col">
+        <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-auto relative transition-colors flex flex-col min-h-0">
            
            {/* DESKTOP VIEW: Full 7-day grid */}
            <div className="hidden lg:block min-w-[800px] h-full flex flex-col">
@@ -248,7 +248,7 @@ export const PlanningView: React.FC<Props> = ({ objectives, tasks, setTasks, sch
            </div>
 
            {/* MOBILE VIEW: Single day grid with time column */}
-           <div className="lg:hidden flex flex-col h-full">
+           <div className="lg:hidden flex flex-col flex-1 min-h-0">
               {/* Sticky Day Selector with Bottom Sheet Trigger */}
               <div className="flex-shrink-0 sticky top-0 z-30 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 p-2">
                 <button 

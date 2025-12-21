@@ -57,6 +57,7 @@ const EditorToolbar: React.FC<{ activeFormats: Record<string, boolean | string>,
 export const NoteSheet: React.FC<Props> = ({ note, noteCategories, tasks, objectives, onUpdate, onDelete, onClose, onFocus, style, isActive, isMobile }) => {
   const [newTag, setNewTag] = useState('');
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+  const [isDeleteConfirming, setIsDeleteConfirming] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const [activeFormats, setActiveFormats] = useState<Record<string, boolean | string>>({});
 
@@ -195,9 +196,31 @@ export const NoteSheet: React.FC<Props> = ({ note, noteCategories, tasks, object
                   Lier ({note.linkedTaskIds.length})
               </button>
               
-              <button onClick={() => onDelete(note.id)} className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500 hover:text-rose-700 transition-colors">
-                Supprimer
-              </button>
+              <div className="flex items-center">
+                {isDeleteConfirming ? (
+                  <div className="flex items-center gap-4 animate-in fade-in slide-in-from-right-2">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); onDelete(note.id); }} 
+                      className="text-[10px] font-bold uppercase tracking-[0.2em] text-rose-600 hover:text-rose-700 transition-colors"
+                    >
+                      CONFIRMER ?
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setIsDeleteConfirming(false); }} 
+                      className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      ANNULER
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setIsDeleteConfirming(true); }} 
+                    className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500 hover:text-rose-700 transition-colors"
+                  >
+                    Supprimer
+                  </button>
+                )}
+              </div>
            </div>
         </div>
       </div>

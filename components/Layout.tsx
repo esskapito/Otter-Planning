@@ -67,14 +67,15 @@ export const Layout: React.FC<LayoutProps> = ({
 
   return (
     <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-950 transition-colors duration-200 overflow-hidden">
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 transition-colors duration-200 shadow-sm flex-shrink-0">
+      {/* Reduced z-index to allow fixed notes to definitely stay on top */}
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-20 transition-colors duration-200 shadow-sm flex-shrink-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center gap-2 md:gap-4">
-              {/* Universal Menu Trigger */}
+              {/* Menu Trigger - Hidden on Desktop as requested */}
               <button 
                 onClick={handleMenuToggle}
-                className="p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all flex items-center gap-2 group"
+                className="p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all flex items-center gap-2 group lg:hidden"
                 aria-label="Ouvrir le menu"
               >
                 <div className="flex flex-col gap-1 w-5">
@@ -82,7 +83,6 @@ export const Layout: React.FC<LayoutProps> = ({
                    <span className={`h-0.5 w-4 bg-slate-500 dark:bg-slate-400 rounded-full transition-all group-hover:bg-indigo-500 group-hover:w-full`}></span>
                    <span className={`h-0.5 w-full bg-slate-500 dark:bg-slate-400 rounded-full transition-all group-hover:bg-indigo-500`}></span>
                 </div>
-                <span className="hidden lg:block text-xs font-black uppercase tracking-widest text-slate-400 group-hover:text-indigo-500">Menu</span>
               </button>
 
               <div className="flex items-center space-x-3 cursor-pointer group" onClick={() => { if(isMenuOpen) setIsMenuOpen(false); else setStep(1); }}>
@@ -239,7 +239,7 @@ export const Layout: React.FC<LayoutProps> = ({
          </div>
       </Sidebar>
 
-      <main className="flex-1 flex flex-col max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <main className="flex-1 flex flex-col max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-8 overflow-y-auto min-h-0">
         {children}
       </main>
     </div>
